@@ -1,2 +1,5 @@
 /models/openscene/data/
 /models/openscene/demo/openscene_features/
+/datasets/*
+!/datasets/get_replica_dataset.sh
+.DS_Store
