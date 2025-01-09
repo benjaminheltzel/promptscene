@@ -11,3 +11,11 @@ fi
 mkdir data/
 echo "Moving OpenYOLO3D/replica to data/replica ..."
 mv ./OpenYOLO3D/replica ./data/
+
+echo "Start downloading pre-processed dataset for openscene..."
+wget https://cvg-data.inf.ethz.ch/openscene/data/replica_processed/replica_3d.zip
+echo "Done! Start unzipping ..."
+unzip replica_3d.zip
+mv ./replica_3d ./data/
+echo "Done!"
+

@@ -2,4 +2,8 @@
 /models/openscene/demo/openscene_features/
 /datasets/*
 !/datasets/get_replica_dataset.sh
+!/datasets/*.py
+!/datasets/Data_Handling.ipynb
+!/datasets/requirements.txt
 .DS_Store
+.ipynb_checkpoints/

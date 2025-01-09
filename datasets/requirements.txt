@@ -1,0 +1,7 @@
+gdown==5.2.0
+jupyter==1.1.1
+jupyter_contrib_nbextensions==0.7.0
+jupyter-server==1.23.5
+jupyter-client==7.4.9
+notebook==6.5.7
+k3d==2.16.1
