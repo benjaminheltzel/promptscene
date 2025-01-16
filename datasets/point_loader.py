@@ -53,6 +53,32 @@ def collation_fn_eval_all(batch):
 
     return torch.cat(coords), torch.cat(feats), torch.cat(labels), torch.cat(inds_recons)
 
+def collation_fn_eval_all_merged(batch):
+    coords, feats, labels, inds_recons, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full = list(zip(*batch))
+    inds_recons = list(inds_recons)
+
+    accmulate_points_num = 0
+    for i, coord in enumerate(coords):
+        coord[:, 0] *= i
+        inds_recons[i] = accmulate_points_num + inds_recons[i]
+        accmulate_points_num += coords[i].shape[0]
+       
+    return {
+            'coords': torch.cat(coords),
+            'feats': torch.cat(feats),
+            'labels': torch.cat(labels),
+            'inds_reconstruct': torch.cat(inds_recons),
+            'data': data,
+            'points': points,
+            'colors': colors,
+            'features': features,
+            'unique_map': unique_map,
+            'inverse_map': inverse_map,
+            'point2segment': point2segment,
+            'point2segment_full': point2segment_full
+            }
+    
+
 def load_mesh(pcl_file):
     
     # load point cloud
@@ -155,35 +181,39 @@ class Point3DLoader(torch.utils.data.Dataset):
         # get data for Mask3D
         data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full = self._getitem_for_mask3d(index)
 
+        #if self.eval_all:
+        #    return {
+        #        'coords': coords,
+        #        'feats': feats,
+        #        'labels': labels,
+        #        'inds_reconstruct': inds_reconstruct,
+        #        'data': data,
+        #        'points': points,
+        #        'colors': colors,
+        #        'features': features,
+        #        'unique_map': unique_map,
+        #        'inverse_map': inverse_map,
+        #        'point2segment': point2segment,
+        #        'point2segment_full': point2segment_full
+        #    }
+        #else:
+        #    return {
+        #        'coords': coords,
+        #        'feats': feats,
+        #        'labels': labels,
+        #        'data': data,
+        #        'points': points,
+        #        'colors': colors,
+        #        'features': features,
+        #        'unique_map': unique_map,
+        #        'inverse_map': inverse_map,
+        #        'point2segment': point2segment,
+        #        'point2segment_full': point2segment_full
+        #    }
         if self.eval_all:
-            return {
-                'coords': coords,
-                'feats': feats,
-                'labels': labels,
-                'inds_reconstruct': inds_reconstruct,
-                'data': data,
-                'points': points,
-                'colors': colors,
-                'features': features,
-                'unique_map': unique_map,
-                'inverse_map': inverse_map,
-                'point2segment': point2segment,
-                'point2segment_full': point2segment_full
-            }
+            return coords, feats, labels, inds_reconstruct, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full
         else:
-            return {
-                'coords': coords,
-                'feats': feats,
-                'labels': labels,
-                'data': data,
-                'points': points,
-                'colors': colors,
-                'features': features,
-                'unique_map': unique_map,
-                'inverse_map': inverse_map,
-                'point2segment': point2segment,
-                'point2segment_full': point2segment_full
-            }
+            return coords, feats, labels, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full
         
         
     def _getitem_for_openscene(self, index):
