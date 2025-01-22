@@ -109,6 +109,7 @@ class Point3DLoader(torch.utils.data.Dataset):
                  ):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.device = "cpu"
         self.split = split
         if split is None:
             split = ''
@@ -170,8 +171,8 @@ class Point3DLoader(torch.utils.data.Dataset):
             print('[*] %s (%s) loading 3D points done (%d)! ' %
                   (datapath_prefix, split, len(self.data_paths)))
 
-    def __getitem__(self, index_long):
-        index = index_long % len(self.data_paths)
+    def __getitem__(self, index):
+        #index = index_long % len(self.data_paths)
         # get data for Openscene
         if self.eval_all:
             coords, feats, labels, inds_reconstruct = self._getitem_for_openscene(index)
