@@ -77,7 +77,7 @@ def main(cfg: DictConfig):
     
     val_dataset = Point3DLoader(datapath_prefix=cfg.general.data_dir,  
                         voxel_size=0.02,   
-                        split="val", aug=False,  
+                        split=cfg.general.split, aug=False,  
                         memcache_init=False, eval_all=True,
                         input_color=False)
     
@@ -85,8 +85,7 @@ def main(cfg: DictConfig):
     
     
     for idx, batch in enumerate(val_dataset):
-        coords, feats, labels, inds_reconstruct, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full = batch
-        print(idx)
+        coords, feats, labels, inds_reconstruct, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full, split_name = batch
         file_path = val_dataset.data_paths[idx]
         file_name = os.path.splitext(os.path.basename(file_path))[0]
         print(f"Processing batch {idx} from file {file_name} ....")
@@ -124,17 +123,20 @@ def main(cfg: DictConfig):
                 confidences.append(c.item())
                 masks_binary.append(m[inverse_map]) # mapping the mask back to the original point cloud
         
-        label_file = os.path.join(output_path, f"{file_name}_labels.txt")
+        current_output_path = os.path.join(output_path, split_name)
+        os.makedirs(current_output_path, exist_ok=True)
+        
+        label_file = os.path.join(current_output_path, f"{file_name}_labels.txt")
         with open(label_file, "w") as file:
             for label in labels:
                 file.write(f"{label}\n")
         
-        confidences_file = os.path.join(output_path, f"{file_name}_confidences.txt")
+        confidences_file = os.path.join(current_output_path, f"{file_name}_confidences.txt")
         with open(confidences_file, "w") as file:
             for confidence in confidences:
                 file.write(f"{confidence}\n")
                 
-        masks_binary_file = os.path.join(output_path, f"{file_name}_masks.pt")
+        masks_binary_file = os.path.join(current_output_path, f"{file_name}_masks.pt")
         torch.save(masks_binary, masks_binary_file)
         #with open(masks_binary_file, "w") as file:
         #    for mask_binary in masks_binary:

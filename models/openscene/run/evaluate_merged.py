@@ -225,7 +225,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                         input_color=args.input_color)
     
     val_sampler = None
-    val_loader = torch.utils.data.DataLoader(val_data, batch_size=args.test_batch_size,
+    val_loader = torch.utils.data.DataLoader(val_data, batch_size=1,
                                                 shuffle=False, num_workers=args.test_workers, pin_memory=True,
                                                 drop_last=False, collate_fn=collation_fn_eval_all_merged,
                                                 sampler=val_sampler)
@@ -307,6 +307,11 @@ def evaluate(model, val_data_loader, labelset_name='scannet_3d'):
                 feat = batch['feats']
                 label = batch['labels']
                 inds_reverse = batch['inds_reconstruct']
+                split_name = batch['split_name']
+                
+                current_save_folder = os.path.join(save_folder, split_name[0])
+                
+                os.makedirs(current_save_folder, exist_ok=True)
                 
                 sinput = SparseTensor(feat.cuda(non_blocking=True), coords.cuda(non_blocking=True))
                 coords = coords[inds_reverse, :]
@@ -354,7 +359,7 @@ def evaluate(model, val_data_loader, labelset_name='scannet_3d'):
 
                 scene_name = val_data_loader.dataset.data_paths[i].split('/')[-1].split('.pth')[0]
                 if args.save_feature_as_numpy:
-                    np.save(os.path.join(saved_feature_folder, '{}_features.npy'.format(scene_name)), predictions.cpu().numpy())
+                    np.save(os.path.join(current_save_folder, '{}_features.npy'.format(scene_name)), predictions.cpu().numpy())
                     print(predictions.shape)
                 
                 # Visualize the input, predictions and GT
@@ -370,19 +375,19 @@ def evaluate(model, val_data_loader, labelset_name='scannet_3d'):
 
                 if vis_input:
                     input_color = torch.load(val_data_loader.dataset.data_paths[i])[1]
-                    export_pointcloud(os.path.join(save_folder, '{}_input.ply'.format(scene_name)), pcl, colors=(input_color+1)/2)
+                    export_pointcloud(os.path.join(current_save_folder, '{}_input.ply'.format(scene_name)), pcl, colors=(input_color+1)/2)
 
                 if vis_pred:
                     if mapper is not None:
                         pred_label_color = convert_labels_with_palette(mapper[logits_pred].numpy(), palette)
-                        export_pointcloud(os.path.join(save_folder, '{}_{}.ply'.format(scene_name, feature_type)), pcl, colors=pred_label_color)
+                        export_pointcloud(os.path.join(current_save_folder, '{}_{}.ply'.format(scene_name, feature_type)), pcl, colors=pred_label_color)
                     else:
                         pred_label_color = convert_labels_with_palette(logits_pred.numpy(), palette)
-                        export_pointcloud(os.path.join(save_folder, '{}_{}.ply'.format(scene_name, feature_type)), pcl, colors=pred_label_color)
+                        export_pointcloud(os.path.join(current_save_folder, '{}_{}.ply'.format(scene_name, feature_type)), pcl, colors=pred_label_color)
                         visualize_labels(list(np.unique(logits_pred.numpy())),
                                     labelset,
                                     palette,
-                                    os.path.join(save_folder, '{}_labels_{}.jpg'.format(scene_name, feature_type)), ncol=5)
+                                    os.path.join(current_save_folder, '{}_labels_{}.jpg'.format(scene_name, feature_type)), ncol=5)
 
                 # Visualize GT labels
                 if vis_gt:
