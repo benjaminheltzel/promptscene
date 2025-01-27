@@ -5,6 +5,11 @@ import torch.nn.functional as F
 MATTERPORT_LABELS_21 = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door',
                     'window', 'bookshelf', 'picture', 'counter', 'desk', 'curtain', 'refrigerator',
                     'shower curtain', 'toilet', 'sink', 'bathtub', 'other', 'ceiling')
+REPLICA_LABELS = ("basket", "bed", "bench", "bin", "blanket", "blinds", "book", "bottle", "box", "bowl", "camera", "cabinet", "candle",
+                  "chair", "clock", "cloth", "comforter", "cushion", "desk", "desk-organizer", "door", "indoor-plant", "lamp", "monitor",
+                  "nightstand", "panel", "picture", "pillar", "pillow", "pipe", "plant-stand", "plate", "pot", "sculpture", "shelf", "sofa", 
+                  "stool", "switch", "table", "tablet", "tissue-paper", "tv-screen", "tv-stand", "vase", "vent", "wall-plug", "window",
+                  "rug")
 
 def extract_text_feature(labelset):
     '''extract CLIP text features.'''
