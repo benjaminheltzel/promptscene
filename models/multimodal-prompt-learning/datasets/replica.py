@@ -8,6 +8,7 @@ from dassl.utils import listdir_nohidden, mkdir_if_missing
 from .oxford_pets import OxfordPets
 import numpy as np
 import math
+import glob
 
 CLASS_LABELS = ["basket", "bed", "bench", "bin", "blanket", "blinds", "book", "bottle", "box", "bowl", "camera", "cabinet", "candle", "chair", "clock",
 "cloth", "comforter", "cushion", "desk", "desk-organizer", "door", "indoor-plant", "lamp", "monitor", "nightstand",
@@ -23,11 +24,27 @@ for pred_id, i in enumerate(range(len(VALID_CLASS_IDS))):
     PRED_ID_TO_ID[pred_id] = VALID_CLASS_IDS[i]
     LABEL_TO_ID[CLASS_LABELS[i]] = VALID_CLASS_IDS[i]
     ID_TO_LABEL[VALID_CLASS_IDS[i]] = CLASS_LABELS[i]
+    
+    
+from collections import Counter
+
+def check_labels(dataset):
+    labels = []
+    for data in dataset:
+        label = data.label  # データセット構造に応じて調整
+        labels.append(label)
+    
+    print(f"Label range: {min(labels)}-{max(labels)}")
+    print(f"Unique labels: {Counter(labels)}")
+
+
+
 
 @DATASET_REGISTRY.register()
 class Replica(DatasetBase):
 
-    dataset_dir = "replica_feature"
+    # dataset_dir = "replica_feature"
+    dataset_dir = "instance_features"
 
     def __init__(self, cfg):
         root = os.path.abspath(os.path.expanduser(cfg.DATASET.ROOT))
@@ -75,6 +92,9 @@ class Replica(DatasetBase):
         print("val:", val)
         print("test:", test)
         print("-----------------------------------------------------------")
+        check_labels(train)
+        check_labels(val)
+        check_labels(test)
 
         super().__init__(train_x=train, val=val, test=test)
 
@@ -92,19 +112,23 @@ class Replica(DatasetBase):
 
     def read_data(self, split):
         split_dir = os.path.join(self.dataset_dir, split)
-        scenes = sorted(f.name for f in os.scandir(split_dir) if f.is_dir() and not f.name.startswith('.'))
+        # scenes = sorted(f.name for f in os.scandir(split_dir) if f.is_dir() and not f.name.startswith('.'))
+        scene_features = glob.glob(os.path.join(split_dir, "*_instance_features.npy"))
         items = []
-        for scene in scenes:
-            feature_path = os.path.join(split_dir, scene, "features.pkl")
-            label_path = os.path.join(split_dir, scene, "labels.pkl")
+        for scene_path in scene_features:
+            scene = scene_path.replace("_instance_features.npy", "")
+            feature_path = os.path.join(split_dir, scene + "_instance_features.npy")
+            label_path = os.path.join(split_dir, scene + "_labels.npy")
 
             if not os.path.exists(feature_path) or not os.path.exists(label_path):
+                print(feature_path)
+                print(label_path)
                 raise FileNotFoundError(f"Missing data files in {split_dir}")
 
-            with open(feature_path, "rb") as f:
-                features = pickle.load(f)  # ndarray(N_instance, 768)
-            with open(label_path, "rb") as f:
-                labels = pickle.load(f)  # ndarray(N_instance)
+            # with open(feature_path, "rb") as f:
+            features = np.load(feature_path)  # ndarray(N_instance, 768)
+            # with open(label_path, "rb") as f:
+            labels = np.load(label_path)  # ndarray(N_instance)
         
             for i, label_id in enumerate(labels):
                 if not label_id in VALID_CLASS_IDS:
@@ -127,8 +151,14 @@ class Replica(DatasetBase):
         # if subsample == "all":
         #     return args
         
-        dataset = args[0]
+        dataset = args[0]  # train
         labels = set()
+        for item in dataset:
+            labels.add(item.label)
+        dataset = args[1]  # val
+        for item in dataset:
+            labels.add(item.label)
+        dataset = args[2]  # test
         for item in dataset:
             labels.add(item.label)
         labels = list(labels)

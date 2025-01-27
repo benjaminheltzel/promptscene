@@ -10,7 +10,7 @@ DATASET=$1
 SEED=$2
 
 CFG=vit_b16_c2_ep5_batch4_2ctx_cross_datasets
-SHOTS=16
+SHOTS=10000
 
 
 DIR=output/evaluation/${TRAINER}/${CFG}_${SHOTS}shots/${DATASET}/seed${SEED}

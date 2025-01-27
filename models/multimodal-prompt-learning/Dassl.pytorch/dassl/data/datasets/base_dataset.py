@@ -60,8 +60,8 @@ class DatasetBase:
         self._train_u = train_u  # unlabeled training data (optional)
         self._val = val  # validation data (optional)
         self._test = test  # test data
-        self._num_classes = self.get_num_classes(train_x)
-        self._lab2cname, self._classnames = self.get_lab2cname(train_x)
+        self._num_classes = self.get_num_classes(train_x, val, test)
+        self._lab2cname, self._classnames = self.get_lab2cname(train_x, val, test)
 
     @property
     def train_x(self):
@@ -90,7 +90,8 @@ class DatasetBase:
     @property
     def num_classes(self):
         return self._num_classes
-
+    
+    '''
     @staticmethod
     def get_num_classes(data_source):
         """Count number of classes.
@@ -102,17 +103,31 @@ class DatasetBase:
         for item in data_source:
             label_set.add(item.label)
         return max(label_set) + 1
-
+    '''
     @staticmethod
-    def get_lab2cname(data_source):
+    def get_num_classes(*data_sources):
+        """Count number of classes.
+
+        Args:
+            data_source (list): a list of Datum objects.
+        """
+        label_set = set()
+        for data_source in data_sources:
+            for item in data_source:
+                label_set.add(item.label)
+        return max(label_set) + 1
+    
+    @staticmethod
+    def get_lab2cname(*data_sources):
         """Get a label-to-classname mapping (dict).
 
         Args:
             data_source (list): a list of Datum objects.
         """
         container = set()
-        for item in data_source:
-            container.add((item.label, item.classname))
+        for data_source in data_sources:
+            for item in data_source:
+                container.add((item.label, item.classname))
         mapping = {label: classname for label, classname in container}
         labels = list(mapping.keys())
         labels.sort()
