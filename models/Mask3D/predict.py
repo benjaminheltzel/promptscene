@@ -118,7 +118,7 @@ def main(cfg: DictConfig):
             m = p_masks > 0.5
             c_m = p_masks[m].sum() / (m.sum() + 1e-8)
             c = c_label * c_m
-            if l < 200 and c > 0.5:
+            if l < 200 and c > cfg.general.required_confidence:
                 labels.append(l.item())
                 confidences.append(c.item())
                 masks_binary.append(m[inverse_map]) # mapping the mask back to the original point cloud

@@ -27,7 +27,7 @@ from dataset.label_constants import *
 
 #sys.path.append("/cluster/54/blessman/ml3d/datasets")
 dataset_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../dataset'))
-print(dataset_path)
+#print(dataset_path)
 if dataset_path not in sys.path:
     sys.path.append(dataset_path)
 
@@ -156,7 +156,7 @@ def main_worker(gpu, ngpus_per_node, argss):
             args.rank = args.rank * ngpus_per_node + gpu
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url, world_size=args.world_size,
                                 rank=args.rank)
-
+    #print(args)
     model = get_model(args)
     if main_process():
         global logger
@@ -222,7 +222,7 @@ def main_worker(gpu, ngpus_per_node, argss):
                         voxel_size=args.voxel_size,   
                         split=args.split, aug=False,  
                         memcache_init=args.use_shm, eval_all=True, identifier=6797,  
-                        input_color=args.input_color)
+                        input_color=args.input_color, use_augmentation_paths=args.use_augmentations)
     
     val_sampler = None
     val_loader = torch.utils.data.DataLoader(val_data, batch_size=1,
@@ -360,7 +360,7 @@ def evaluate(model, val_data_loader, labelset_name='scannet_3d'):
                 scene_name = val_data_loader.dataset.data_paths[i].split('/')[-1].split('.pth')[0]
                 if args.save_feature_as_numpy:
                     np.save(os.path.join(current_save_folder, '{}_features.npy'.format(scene_name)), predictions.cpu().numpy())
-                    print(predictions.shape)
+                    #print(predictions.shape)
                 
                 # Visualize the input, predictions and GT
 
