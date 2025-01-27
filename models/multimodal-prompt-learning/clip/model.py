@@ -346,7 +346,7 @@ class Transformer(nn.Module):
                                              else ResidualAttentionBlock_IVLP(width, heads, attn_mask, False,
                                                                               text_layer, i, design_details)
                                              for i in range(layers)])
-        elif current_trainer == 'MaPLe':
+        elif current_trainer == 'MaPLe' or current_trainer=='MaPLePromptScene':
             self.resblocks = nn.Sequential(
                 *[ResidualAttentionBlock_MaPLe(width, heads, attn_mask, design_details, text_layer, i)
                   for i in range(layers)])
@@ -421,7 +421,6 @@ class VisionTransformer(nn.Module):
 
         return x
 
-
 class VisionTransformer_MaPLe(nn.Module):
     def __init__(self, input_resolution: int, patch_size: int, width: int, layers: int, heads: int, output_dim: int,
                  design_details):
@@ -474,7 +473,6 @@ class VisionTransformer_MaPLe(nn.Module):
             x = x @ self.proj
 
         return x
-
 
 class CLIP(nn.Module):
     def __init__(self,

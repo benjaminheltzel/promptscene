@@ -17,6 +17,7 @@ import datasets.sun397
 import datasets.caltech101
 import datasets.ucf101
 import datasets.imagenet
+import datasets.replica
 
 import datasets.imagenet_sketch
 import datasets.imagenetv2
@@ -29,6 +30,7 @@ import trainers.zsclip
 import trainers.maple
 import trainers.independentVL
 import trainers.vpt
+import trainers.maple_prompt_scene
 
 def print_args(args, cfg):
     print("***************")
@@ -127,6 +129,26 @@ def extend_cfg(cfg):
     cfg.TRAINER.VPT.PREC = "fp16"  # fp16, fp32, amp
     cfg.TRAINER.VPT.PROMPT_DEPTH_VISION = 1  # if set to 1, will represent shallow vision prompting only
     cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    
+    # Config for MaPLePromptScene
+    """
+    cfg.TRAINER.MAPLE_PROMPT_SCENE = CN()
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.N_CTX_VISION = 2  # number of context vectors at the vision branch
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.N_CTX_TEXT = 2  # number of context vectors at the language branch
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.CTX_INIT = "a photo of a"  # initialization words (only for language prompts)
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PREC = "fp16"  # fp16, fp32, amp
+    # If both variables below are set to 0, 0, will the config will degenerate to COOP model
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH_VISION = 0 # Max 12, minimum 0, for 0 it will act as shallow MaPLe (J=1)
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH_TEXT = 9  # Max 12, minimum 0, for 0 it will act as shallow MaPLe (J=1)
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    """
+    cfg.TRAINER.MAPLE_PROMPT_SCENE = CN()
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.N_CTX = 2  # number of context vectors
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.CTX_INIT = "a photo of a"  # initialization words
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PREC = "fp16"  # fp16, fp32, amp
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH = 9 # Max 12, minimum 0, for 1 it will act as shallow MaPLe (J=1)
+    cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
+    
 
 
 def setup_cfg(args):

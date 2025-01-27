@@ -7,5 +7,4 @@
 !/datasets/requirements.txt
 .DS_Store
 .ipynb_checkpoints/
-/models/multimodal-prompt-learning/Dassl.pytorch/
 /models/multimodal-prompt-learning/output/
