@@ -44,6 +44,8 @@ general:
   max_batch_size: 99999999
 
   save_dir: saved/${general.experiment_name}
+  
+  data_dir: data/${general.experiment_name}
   # time/commit/md5(config)_uuid
   # time/experiment_id/version_uuid
   # experiment_id: 1 # commit[:8], or unique from logger

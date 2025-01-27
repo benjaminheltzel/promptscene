@@ -2,7 +2,7 @@
 
 from glob import glob
 import multiprocessing as mp
-from os.path import join, exists
+from os.path import join, exists, basename, dirname
 import numpy as np
 import torch
 # import SharedArray as SA
@@ -53,6 +53,33 @@ def collation_fn_eval_all(batch):
 
     return torch.cat(coords), torch.cat(feats), torch.cat(labels), torch.cat(inds_recons)
 
+def collation_fn_eval_all_merged(batch):
+    coords, feats, labels, inds_recons, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full, split_name = list(zip(*batch))
+    inds_recons = list(inds_recons)
+
+    accmulate_points_num = 0
+    for i, coord in enumerate(coords):
+        coord[:, 0] *= i
+        inds_recons[i] = accmulate_points_num + inds_recons[i]
+        accmulate_points_num += coords[i].shape[0]
+       
+    return {
+            'coords': torch.cat(coords),
+            'feats': torch.cat(feats),
+            'labels': torch.cat(labels),
+            'inds_reconstruct': torch.cat(inds_recons),
+            'data': data,
+            'points': points,
+            'colors': colors,
+            'features': features,
+            'unique_map': unique_map,
+            'inverse_map': inverse_map,
+            'point2segment': point2segment,
+            'point2segment_full': point2segment_full,
+            'split_name': split_name
+            }
+    
+
 def load_mesh(pcl_file):
     
     # load point cloud
@@ -83,11 +110,20 @@ class Point3DLoader(torch.utils.data.Dataset):
                  ):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #self.device = "cpu"
         self.split = split
         if split is None:
             split = ''
         self.identifier = identifier
-        self.data_paths = sorted(glob(join(datapath_prefix, split, '*.pth')))
+        
+        if split == 'all':
+            self.data_paths = sorted(glob(join(datapath_prefix, 'train', '*.pth'))
+                                    + glob(join(datapath_prefix, 'val', '*.pth'))
+                                    + glob(join(datapath_prefix, 'test', '*.pth')))
+            print(self.data_paths)
+                        
+        else:
+            self.data_paths = sorted(glob(join(datapath_prefix, split, '*.pth')))
         if len(self.data_paths) == 0:
             raise Exception('0 file is loaded in the point loader.')
 
@@ -144,8 +180,8 @@ class Point3DLoader(torch.utils.data.Dataset):
             print('[*] %s (%s) loading 3D points done (%d)! ' %
                   (datapath_prefix, split, len(self.data_paths)))
 
-    def __getitem__(self, index_long):
-        index = index_long % len(self.data_paths)
+    def __getitem__(self, index):
+        #index = index_long % len(self.data_paths)
         # get data for Openscene
         if self.eval_all:
             coords, feats, labels, inds_reconstruct = self._getitem_for_openscene(index)
@@ -154,36 +190,46 @@ class Point3DLoader(torch.utils.data.Dataset):
 
         # get data for Mask3D
         data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full = self._getitem_for_mask3d(index)
-
+        
+        
+        # Get name of split (train, val, test)
+        path = self.data_paths[index]
+        
+        split_name = basename(dirname(path))
+        
+        #if self.eval_all:
+        #    return {
+        #        'coords': coords,
+        #        'feats': feats,
+        #        'labels': labels,
+        #        'inds_reconstruct': inds_reconstruct,
+        #        'data': data,
+        #        'points': points,
+        #        'colors': colors,
+        #        'features': features,
+        #        'unique_map': unique_map,
+        #        'inverse_map': inverse_map,
+        #        'point2segment': point2segment,
+        #        'point2segment_full': point2segment_full
+        #    }
+        #else:
+        #    return {
+        #        'coords': coords,
+        #        'feats': feats,
+        #        'labels': labels,
+        #        'data': data,
+        #        'points': points,
+        #        'colors': colors,
+        #        'features': features,
+        #        'unique_map': unique_map,
+        #        'inverse_map': inverse_map,
+        #        'point2segment': point2segment,
+        #        'point2segment_full': point2segment_full
+        #    }
         if self.eval_all:
-            return {
-                'coords': coords,
-                'feats': feats,
-                'labels': labels,
-                'inds_reconstruct': inds_reconstruct,
-                'data': data,
-                'points': points,
-                'colors': colors,
-                'features': features,
-                'unique_map': unique_map,
-                'inverse_map': inverse_map,
-                'point2segment': point2segment,
-                'point2segment_full': point2segment_full
-            }
+            return coords, feats, labels, inds_reconstruct, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full, split_name
         else:
-            return {
-                'coords': coords,
-                'feats': feats,
-                'labels': labels,
-                'data': data,
-                'points': points,
-                'colors': colors,
-                'features': features,
-                'unique_map': unique_map,
-                'inverse_map': inverse_map,
-                'point2segment': point2segment,
-                'point2segment_full': point2segment_full
-            }
+            return coords, feats, labels, data, points, colors, features, unique_map, inverse_map, point2segment, point2segment_full, split_name
         
         
     def _getitem_for_openscene(self, index):

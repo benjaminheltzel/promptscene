@@ -83,7 +83,7 @@ class FusedFeatureLoader(Point3DLoader):
             scene_name = self.data_paths[index][:-15].split('/')[-1]
         else:
             scene_name = self.data_paths[index][:-4].split('/')[-1]
-
+        print("test")
         if 'nuscenes' not in self.dataset_name:
             n_occur = self.list_occur[index]
             if n_occur > 1:
@@ -92,7 +92,8 @@ class FusedFeatureLoader(Point3DLoader):
                 nn_occur = 0
             else:
                 raise NotImplementedError
-
+            
+            print(join(self.datapath_feat, scene_name+'_%d.pt'%(nn_occur)))
             processed_data = torch.load(join(
                 self.datapath_feat, scene_name+'_%d.pt'%(nn_occur)))
         else:
