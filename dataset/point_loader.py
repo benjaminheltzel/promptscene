@@ -3,6 +3,7 @@
 from glob import glob
 import multiprocessing as mp
 from os.path import join, exists, basename, dirname
+import os
 import numpy as np
 import torch
 # import SharedArray as SA
@@ -106,7 +107,7 @@ class Point3DLoader(torch.utils.data.Dataset):
                  data_aug_color_jitter_std=0.05,
                  data_aug_hue_max=0.5,
                  data_aug_saturation_max=0.2,
-                 eval_all=False, input_color=False
+                 eval_all=False, input_color=False, use_augmentation_paths=False
                  ):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -115,12 +116,16 @@ class Point3DLoader(torch.utils.data.Dataset):
         if split is None:
             split = ''
         self.identifier = identifier
+        self.use_augmentation_paths = use_augmentation_paths
         
         if split == 'all':
             self.data_paths = sorted(glob(join(datapath_prefix, 'train', '*.pth'))
                                     + glob(join(datapath_prefix, 'val', '*.pth'))
                                     + glob(join(datapath_prefix, 'test', '*.pth')))
-            print(self.data_paths)
+            if self.use_augmentation_paths:
+                self.data_paths = sorted([os.path.join(root, file) for root, _, files in os.walk(datapath_prefix) for file in files if file.endswith('.pth')])
+                
+                print(self.data_paths)
                         
         else:
             self.data_paths = sorted(glob(join(datapath_prefix, split, '*.pth')))
@@ -197,6 +202,9 @@ class Point3DLoader(torch.utils.data.Dataset):
         
         split_name = basename(dirname(path))
         
+        if split_name not in ["train", "val", "test"]:
+            split_name = join(basename(dirname(dirname(path))), "augmented_features")
+        
         #if self.eval_all:
         #    return {
         #        'coords': coords,
@@ -270,7 +278,13 @@ class Point3DLoader(torch.utils.data.Dataset):
 
     def _getitem_for_mask3d(self, index):
         # From OpenYOLO3D source code
-        filename = self.data_paths[index].replace(".pth", "_mesh.ply")
+        filename = self.data_paths[index]
+        if self.use_augmentation_paths and "augmentations" in os.path.normpath(filename):
+            sample_name = os.path.basename(filename)
+            new_filename = sample_name.split("_")[0] + "_mesh.ply"
+            filename = os.path.join(os.path.dirname(os.path.dirname(filename)),  new_filename)
+        else:
+            filename = filename.replace(".pth", "_mesh.ply")
         color_mean = (0.47793125906962, 0.4303257521323044, 0.3749598901421883)
         color_std = (0.2834475483823543, 0.27566157565723015, 0.27018971370874995)
         normalize_color = A.Normalize(mean=color_mean, std=color_std)
