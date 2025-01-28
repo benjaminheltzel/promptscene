@@ -203,10 +203,9 @@ class CustomCLIP(nn.Module):
         prompts, shared_ctx, deep_compound_prompts_text, deep_compound_prompts_vision = self.prompt_learner()
         text_features = self.text_encoder(prompts, tokenized_prompts, deep_compound_prompts_text)
         
-        point_features = point_features[:, :512]
         point_features = point_features / point_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
-        logits = logit_scale * point_features @ text_features.t()
+        logits = logit_scale * point_features @ text_features.t()  # calculate similarity
 
         if self.prompt_learner.training:
             return F.cross_entropy(logits, label)

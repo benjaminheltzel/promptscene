@@ -43,8 +43,8 @@ def check_labels(dataset):
 @DATASET_REGISTRY.register()
 class Replica(DatasetBase):
 
-    # dataset_dir = "replica_feature"
-    dataset_dir = "instance_features"
+    dataset_dir = "replica_features"
+    # dataset_dir = "instance_features"
 
     def __init__(self, cfg):
         root = os.path.abspath(os.path.expanduser(cfg.DATASET.ROOT))
@@ -113,11 +113,11 @@ class Replica(DatasetBase):
     def read_data(self, split):
         split_dir = os.path.join(self.dataset_dir, split)
         # scenes = sorted(f.name for f in os.scandir(split_dir) if f.is_dir() and not f.name.startswith('.'))
-        scene_features = glob.glob(os.path.join(split_dir, "*_instance_features.npy"))
+        scene_features = glob.glob(os.path.join(split_dir, "*_features.npy"))
         items = []
         for scene_path in scene_features:
-            scene = scene_path.replace("_instance_features.npy", "")
-            feature_path = os.path.join(split_dir, scene + "_instance_features.npy")
+            scene = scene_path.replace("_features.npy", "")
+            feature_path = os.path.join(split_dir, scene + "_features.npy")
             label_path = os.path.join(split_dir, scene + "_labels.npy")
 
             if not os.path.exists(feature_path) or not os.path.exists(label_path):
