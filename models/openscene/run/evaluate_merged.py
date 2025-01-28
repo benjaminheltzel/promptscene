@@ -96,6 +96,9 @@ def precompute_text_related_properties(labelset_name):
     elif 'nuscenes' in labelset_name:
         labelset = list(NUSCENES_LABELS_16)
         palette = get_palette(colormap='nuscenes16')
+    elif labelset_name == "replica":
+        labelset = list(REPLICA_LABELS)
+        palette = get_palette(colormap='matterport_160')
     else: # an arbitrary dataset, just use a large labelset
         labelset = list(MATTERPORT_LABELS_160)
         palette = get_palette(colormap='matterport_160')

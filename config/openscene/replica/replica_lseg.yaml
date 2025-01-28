@@ -10,7 +10,7 @@ DATA:
   
 TEST:
   split: 'all'
-  labelset: matterport
+  labelset: replica #matterport
   prompt_eng: True
   mark_no_feature_to_unknown: True
   feature_type: 'distill' # 'distill' | 'fusion' | 'ensemble'
