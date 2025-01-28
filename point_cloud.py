@@ -3,15 +3,8 @@ import numpy as np
 import k3d
 import torch
 
-def visualize_ply_with_k3d(file_path, point_size=0.05):
-    """
-    Load a PLY file and visualize it using k3d in a Jupyter Notebook.
-
-    Args:
-        file_path (str): Path to the PLY file.
-        point_size (float): Size of the points in the visualization.
-    """
-    # Load the PLY file using Open3D
+def load_point_cloud_from_ply(file_path):
+     # Load the PLY file using Open3D
     ply_data = o3d.io.read_point_cloud(file_path)
     
     # Check if the file is loaded correctly
@@ -24,7 +17,20 @@ def visualize_ply_with_k3d(file_path, point_size=0.05):
 
     # Extract points and colors
     coords = np.asarray(ply_data.points)  # 3D coordinates
-    colors = np.asarray(ply_data.colors)  # RGB values (normalized to [0, 1])
+    colors = np.asarray(ply_data.colors)
+    return coords, colors
+
+
+def visualize_ply_with_k3d(file_path, point_size=0.05):
+    """
+    Load a PLY file and visualize it using k3d in a Jupyter Notebook.
+
+    Args:
+        file_path (str): Path to the PLY file.
+        point_size (float): Size of the points in the visualization.
+    """
+    
+    colors, coords = load_point_cloud_from_ply(file_path)
 
     # Normalize colors to 0-255 and convert to hexadecimal
     colors = (colors * 255).astype(np.uint64)

@@ -10,6 +10,27 @@ REPLICA_LABELS = ("basket", "bed", "bench", "bin", "blanket", "blinds", "book", 
                   "nightstand", "panel", "picture", "pillar", "pillow", "pipe", "plant-stand", "plate", "pot", "sculpture", "shelf", "sofa", 
                   "stool", "switch", "table", "tablet", "tissue-paper", "tv-screen", "tv-stand", "vase", "vent", "wall-plug", "window",
                   "rug")
+VALID_CLASS_IDS = np.asarray([3, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 26, 29, 34, 35, 37, 44, 47, 52, 54, 56, 59, 60, 61, 62, 63, 64, 65, 70, 71, 76, 78, 79, 80, 82, 83, 87, 88, 91, 92, 95, 97, 98])
+ID_TO_LABEL = {}
+LABEL_TO_ID = {}
+PRED_ID_TO_ID = {}
+for pred_id, i in enumerate(range(len(VALID_CLASS_IDS))):
+    PRED_ID_TO_ID[pred_id] = VALID_CLASS_IDS[i]
+    LABEL_TO_ID[REPLICA_LABELS[i]] = VALID_CLASS_IDS[i]
+    ID_TO_LABEL[VALID_CLASS_IDS[i]] = REPLICA_LABELS[i]
+
+# PRED_ID_TO_ID[-1] = -1
+PRED_ID_TO_ID[48] = -1 
+
+SKIPPED_CLASSES = ["undefined", "floor", "ceiling", "wall"]
+
+def gt_ids_to_label(gt_id):
+    transformed_id = int(gt_id // 1000)
+    return ID_TO_LABEL[transformed_id]
+
+def gt_ids_to_id(gt_id):
+    return int(gt_id // 1000)
+
 
 def extract_text_feature(labelset):
     '''extract CLIP text features.'''
