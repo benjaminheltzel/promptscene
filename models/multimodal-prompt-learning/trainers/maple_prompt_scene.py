@@ -75,91 +75,104 @@ class TextEncoder(nn.Module):
 class MultiModalPromptLearner(nn.Module):
     def __init__(self, cfg, classnames, clip_model):
         super().__init__()
-        print("\n=== Initializing MultiModalPromptLearner ===")
         n_cls = len(classnames)
         n_ctx = cfg.TRAINER.MAPLE_PROMPT_SCENE.N_CTX
         ctx_init = cfg.TRAINER.MAPLE_PROMPT_SCENE.CTX_INIT
+        dtype = clip_model.dtype
+        ctx_dim = clip_model.ln_final.weight.shape[0]
 
+        self.compound_prompts_depth = cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH # max=12, but will create 11 such shared prompts
+        assert self.compound_prompts_depth >= 1, "PROMPT_DEPTH should be >= 1"
 
+        print("\n=== Initializing MultiModalPromptLearner ===")
         print(f"Number of classes: {n_cls}")
         print(f"Context length: {n_ctx}")
         print(f"Initial context: {ctx_init}")
-
-
-        dtype = clip_model.dtype
-        # dtype = next(clip_model.parameters()).dtype
-        ctx_dim = clip_model.ln_final.weight.shape[0]
-        # clip_imsize = clip_model.visual.input_resolution
-        # cfg_imsize = cfg.INPUT.SIZE[0]
-        # Default is 1, which is compound shallow prompting
-        assert cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH >= 1, "For MaPLe, PROMPT_DEPTH should be >= 1"
-        self.compound_prompts_depth = cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH  # max=12, but will create 11 such shared prompts
-        # assert cfg_imsize == clip_imsize, f"cfg_imsize ({cfg_imsize}) must equal to clip_imsize ({clip_imsize})"
+        
 
         if ctx_init and (n_ctx) <= 4:
             print("\nTokenization check:")
             
-            # use given words to initialize context vectors
             ctx_init = ctx_init.replace("_", " ")
             print(f"Processed context: {ctx_init}")
 
-            prompt = clip.tokenize(ctx_init)
-            print(f"Tokenized prompt shape: {prompt.shape}")
+            demo_prompt = ctx_init.replace("{label}", classnames[0])
+            print(f"Sample complete prompt: {demo_prompt}")
+
+            tokens = clip.tokenize(demo_prompt)
+            print(f"Tokenized prompt shape: {tokens.shape}")
+
+            token_ids = tokens[0].tolist()
+
+            name_token_idx = 1  # Start after SOS token
+            for idx, token_id in enumerate(token_ids[1:], 1):
+                if token_id != 0 and token_id != 49407:  # Skip padding and EOS
+                    name_token_idx = idx
+                    break
+            print(f"Class name token position: {name_token_idx}")
+
 
             with torch.no_grad():
-                embedding = clip_model.token_embedding(prompt).type(dtype)
+                embedding = clip_model.token_embedding(tokens).type(dtype)
                 print(f"Initial embedding shape: {embedding.shape}")
                 print(f"Embedding dtype: {embedding.dtype}")
             
-            ctx_vectors = embedding[0, 1: 1 + n_ctx, :]
-            print(f"Context vectors shape: {ctx_vectors.shape}")
+                start_idx = max(1, name_token_idx - n_ctx//2)
+                end_idx = start_idx + n_ctx
+                ctx_vectors = embedding[0, start_idx:end_idx, :]
+                print(f"Context vectors shape: {ctx_vectors.shape}")
+
+                num_actual_tokens = sum(1 for t in token_ids if t != 0 and t != 49407)
+                print(f"Number of actual text tokens: {num_actual_tokens}")
+
             prompt_prefix = ctx_init
+
         else:
             # random initialization
             print("\nRandom initialization used")
+            
             ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)
             nn.init.normal_(ctx_vectors, std=0.02)
             print(f"Random context vectors shape: {ctx_vectors.shape}")
+            
             prompt_prefix = " ".join(["X"] * n_ctx)
+        
+        # Shallow layers
+        self.ctx = nn.Parameter(ctx_vectors)
+
+        # Deeper layers
+        self.compound_prompts_text = nn.ParameterList([
+            nn.Parameter(torch.empty(n_ctx, ctx_dim))
+            for _ in range(self.compound_prompts_depth - 1)
+        ])
+        for single_para in self.compound_prompts_text:
+            nn.init.normal_(single_para, std=0.02)
+
         print('MaPLe design: Multi-modal Prompt Learning')
         print(f'Initial context: "{prompt_prefix}"')
         print(f"Number of MaPLe context words (tokens): {n_ctx}")
-        # These below, related to the shallow prompts
-        # Linear layer so that the tokens will project to 512 and will be initialized from 768
-        # self.proj = nn.Linear(ctx_dim, 768)
-        # self.proj.half()
-        self.ctx = nn.Parameter(ctx_vectors)
-        # These below parameters related to the shared prompts
-        # Define the compound prompts for the deeper layers
 
-        # Minimum can be 1, which defaults to shallow MaPLe
-        # compound prompts
-        self.compound_prompts_text = nn.ParameterList([nn.Parameter(torch.empty(n_ctx, 512))
-                                                      for _ in range(self.compound_prompts_depth - 1)])
-        for single_para in self.compound_prompts_text:
-            nn.init.normal_(single_para, std=0.02)
-        # Also make corresponding projection layers, for each prompt
-        # single_layer = nn.Linear(ctx_dim, 768)
-        # self.compound_prompt_projections = _get_clones(single_layer, self.compound_prompts_depth - 1)
-
+        # Process classnames
         classnames = [name.replace("_", " ") for name in classnames]
         name_lens = [len(_tokenizer.encode(name)) for name in classnames]
-        # prompts = [prompt_prefix + " " + name + "." for name in classnames]
         prompts = [prompt_prefix.replace("{label}", name) for name in classnames]
+
         print("whole prompts")
         print(prompts)
-        print("Sample prompt:", prompt_prefix.replace("{label}", classnames[0]))
 
+        # Tokenize prompts
         tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])  # (n_cls, n_tkn)
+        print(f"Tokenized prompts shape: {tokenized_prompts.shape}")
+        print("Token sequence lengths:", [len(clip.tokenize(p)) for p in prompts[:3]])
+        
         with torch.no_grad():
             embedding = clip_model.token_embedding(tokenized_prompts).type(dtype)
-        print("Token sequence lengths:", [len(clip.tokenize(p)) for p in prompts[:3]])
-        # These token vectors will be saved when in save_model(),
-        # but they should be ignored in load_model() as we want to use
-        # those computed using the current class names
-        self.register_buffer("token_prefix", embedding[:, :1, :])  # SOS
-        self.register_buffer("token_suffix", embedding[:, 1 + n_ctx:, :])  # CLS, EOS
 
+        # Save special tokens (SOS, EOS + padding)
+        self.register_buffer("token_prefix", embedding[:, :1, :])  # SOS
+        self.register_buffer("token_suffix", embedding[:, 1 + n_ctx:, :])  # EOS + padding
+
+        # Save other stuff
         self.n_cls = n_cls
         self.n_ctx = n_ctx
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
@@ -171,26 +184,39 @@ class MultiModalPromptLearner(nn.Module):
         # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
         # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
 
-        print(f"Prompt construction debug:")
-        print(f"Context shape: {ctx.shape}")
-        print(f"Prefix shape: {prefix.shape}")
-        print(f"Suffix shape: {suffix.shape}")
-
         if label is not None:
             print(f"Label values: {label}")
             prefix = prefix[label]
             suffix = suffix[label]
 
+        # Number of actual text tokens in the suffix
+        n_text_tokens = (suffix.shape[1] + 1) // 2
+        
+        # Split tokens into two parts
+        ctx_before = self.n_ctx // 2
+
+        print("\nPrompt construction debug:")
+        print(f"Context shape: {ctx.shape}")
+        print(f"Prefix shape: {prefix.shape}")
+        print(f"Suffix shape: {suffix.shape}")
+        print(f"Number of text tokens in suffix: {n_text_tokens}")
+
         prompts = torch.cat(
             [
-                prefix,  # (dim0, 1, dim)
-                ctx,  # (dim0, n_ctx, dim)
-                suffix,  # (dim0, *, dim)
+                prefix,  # [SOS] (dim0, 1, dim)
+                ctx[:, :ctx_before],  # [first half of learnable tokens] (dim0, n_ctx, dim)
+                suffix[:, :1],  # [class name] (dim0, *, dim)
+                ctx[:, ctx_before:self.n_ctx],  # [second half of learnable tokens] (dim0, n_ctx, dim)
+                suffix[:, 1:],  # [remaining tokens incl EOS] (dim0, *, dim)
             ],
             dim=1,
         )
         print(f"Final prompt shape: {prompts.shape}")
         print(f"Sample prompt values: {prompts[0, :5, :5]}")
+
+        expected_length = 77  # CLIP's expected sequence length
+        actual_length = prompts.shape[1]
+        assert actual_length == expected_length, f"Prompt length {actual_length} doesn't match CLIP's expected length {expected_length}"
 
         return prompts
 
@@ -198,10 +224,6 @@ class MultiModalPromptLearner(nn.Module):
         print("\n=== MultiModalPromptLearner Forward Pass ===")
         ctx = self.ctx
 
-        print(f"Context vectors dtype before conversion: {self.ctx.data.dtype}")
-        print(f"Projection layer weight dtype: {self.proj.weight.dtype}")
-
-        # self.ctx.data = self.ctx.data.to(self.proj.weight.dtype)
         print(f"Context vectors dtype after conversion: {self.ctx.data.dtype}")
 
         if ctx.dim() == 2:
