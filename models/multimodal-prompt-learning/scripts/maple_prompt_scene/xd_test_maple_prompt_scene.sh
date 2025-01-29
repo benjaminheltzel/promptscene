@@ -9,7 +9,7 @@ TRAINER=MaPLePromptScene
 DATASET=$1
 SEED=$2
 
-CFG=vit_b16_c2_ep5_batch4_2ctx_cross_datasets
+CFG=$4
 SHOTS=1000000
 
 

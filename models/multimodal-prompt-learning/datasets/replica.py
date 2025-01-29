@@ -25,7 +25,7 @@ for pred_id, i in enumerate(range(len(VALID_CLASS_IDS))):
     LABEL_TO_ID[CLASS_LABELS[i]] = VALID_CLASS_IDS[i]
     ID_TO_LABEL[VALID_CLASS_IDS[i]] = CLASS_LABELS[i]
     
-    
+SKIPPED_CLASSES = ["undefined", "floor", "ceiling", "wall"]
 from collections import Counter
 
 def check_labels(dataset):
@@ -35,7 +35,7 @@ def check_labels(dataset):
         labels.append(label)
     
     print(f"Label range: {min(labels)}-{max(labels)}")
-    print(f"Unique labels: {Counter(labels)}")
+    print(f"Unique labels: {set(labels)}")
 
 
 

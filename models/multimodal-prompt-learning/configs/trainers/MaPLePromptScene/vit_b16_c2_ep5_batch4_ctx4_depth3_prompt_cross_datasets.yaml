@@ -14,8 +14,8 @@ INPUT:
 
 OPTIM:
   NAME: "sgd"
-  LR: 0.0026
-  MAX_EPOCH: 2
+  LR: 0.0035
+  MAX_EPOCH: 5
   LR_SCHEDULER: "cosine"
   WARMUP_EPOCH: 1
   WARMUP_TYPE: "constant"
@@ -30,7 +30,8 @@ MODEL:
 
 TRAINER:
   MAPLE_PROMPT_SCENE:
-    N_CTX: 2
-    CTX_INIT: "a photo of a"
+    N_CTX: 4
+    # CTX_INIT: "a photo of a {label}."
+    CTX_INIT: "a {label} in a scene"
     PREC: "fp16"
     PROMPT_DEPTH: 3
