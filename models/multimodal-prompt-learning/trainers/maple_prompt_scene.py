@@ -75,9 +75,17 @@ class TextEncoder(nn.Module):
 class MultiModalPromptLearner(nn.Module):
     def __init__(self, cfg, classnames, clip_model):
         super().__init__()
+        print("\n=== Initializing MultiModalPromptLearner ===")
         n_cls = len(classnames)
         n_ctx = cfg.TRAINER.MAPLE_PROMPT_SCENE.N_CTX
         ctx_init = cfg.TRAINER.MAPLE_PROMPT_SCENE.CTX_INIT
+
+
+        print(f"Number of classes: {n_cls}")
+        print(f"Context length: {n_ctx}")
+        print(f"Initial context: {ctx_init}")
+
+
         dtype = clip_model.dtype
         # dtype = next(clip_model.parameters()).dtype
         ctx_dim = clip_model.ln_final.weight.shape[0]
@@ -88,20 +96,30 @@ class MultiModalPromptLearner(nn.Module):
         self.compound_prompts_depth = cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH  # max=12, but will create 11 such shared prompts
         # assert cfg_imsize == clip_imsize, f"cfg_imsize ({cfg_imsize}) must equal to clip_imsize ({clip_imsize})"
 
-        # if ctx_init and (n_ctx) <= 4:
-        if ctx_init and (n_ctx) <= 6:
+        if ctx_init and (n_ctx) <= 4:
+            print("\nTokenization check:")
+            
             # use given words to initialize context vectors
             ctx_init = ctx_init.replace("_", " ")
-            n_ctx = n_ctx
+            print(f"Processed context: {ctx_init}")
+
             prompt = clip.tokenize(ctx_init)
+            print(f"Tokenized prompt shape: {prompt.shape}")
+
             with torch.no_grad():
                 embedding = clip_model.token_embedding(prompt).type(dtype)
+                print(f"Initial embedding shape: {embedding.shape}")
+                print(f"Embedding dtype: {embedding.dtype}")
+            
             ctx_vectors = embedding[0, 1: 1 + n_ctx, :]
+            print(f"Context vectors shape: {ctx_vectors.shape}")
             prompt_prefix = ctx_init
         else:
             # random initialization
+            print("\nRandom initialization used")
             ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)
             nn.init.normal_(ctx_vectors, std=0.02)
+            print(f"Random context vectors shape: {ctx_vectors.shape}")
             prompt_prefix = " ".join(["X"] * n_ctx)
         print('MaPLe design: Multi-modal Prompt Learning')
         print(f'Initial context: "{prompt_prefix}"')
@@ -168,25 +186,43 @@ class MultiModalPromptLearner(nn.Module):
         return prompts
 
     def forward(self):
+        print("\n=== MultiModalPromptLearner Forward Pass ===")
         ctx = self.ctx
 
+        print(f"Context vectors dtype before conversion: {self.ctx.data.dtype}")
+        print(f"Projection layer weight dtype: {self.proj.weight.dtype}")
+
+        self.ctx.data = self.ctx.data.to(self.proj.weight.dtype)
+        print(f"Context vectors dtype after conversion: {self.ctx.data.dtype}")
+
         if ctx.dim() == 2:
+            print(f"Expanding context from shape {ctx.shape}")
             ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)
+            print(f"to shape {ctx.shape}")
 
         prefix = self.token_prefix
         suffix = self.token_suffix
         prompts = self.construct_prompts(ctx, prefix, suffix)
+        print(f"Constructed prompts shape: {prompts.shape}")
 
         # Before returning, need to transform
         # prompts to 768 for the visual side
+        print("\nPrompt Projections:")
         visual_deep_prompts = []
         for index, layer in enumerate(self.compound_prompt_projections):
-            visual_deep_prompts.append(layer(self.compound_prompts_text[index]))
+            projection = layer(self.compound_prompts_text[index])
+            print (f"Layer {index} projection shape: {projection.shape}")
+            visual_deep_prompts.append(projection)
+        
         # Now the other way around
         # We will project the textual prompts from 512 to 768
         
-        self.ctx.data = self.ctx.data.to(self.proj.weight.dtype)
-        return prompts, self.proj(self.ctx), self.compound_prompts_text, visual_deep_prompts   # pass here original, as for visual 768 is required
+        print(f"\nCtx dtype before projection: {self.ctx.dtype}")
+        projected_ctx = self.proj(self.ctx)
+        print(f"Ctx shape after projection: {projected_ctx.shape}")
+        print(f"Ctx dtype after projection: {projected_ctx.dtype}")
+
+        return prompts, projected_ctx, self.compound_prompts_text, visual_deep_prompts   # pass here original, as for visual 768 is required
 
 
 class CustomCLIP(nn.Module):
@@ -201,19 +237,40 @@ class CustomCLIP(nn.Module):
         # self.dtype = next(clip_model.parameters()).dtype
 
     def forward(self, point_features, label=None):
+        print("\n=== Starting CustomCLIP Forward Pass ===")
+        print(f"Point features shape: {point_features.shape}")
+        print(f"Point features dtype: {point_features.dtype}")
+
         tokenized_prompts = self.tokenized_prompts
+        print(f"Tokenized prompts shape: {tokenized_prompts.shape}")
+
         logit_scale = self.logit_scale.exp()
+        print(f"Logit scale: {logit_scale.item()}")
 
         prompts, shared_ctx, deep_compound_prompts_text, deep_compound_prompts_vision = self.prompt_learner()
-        text_features = self.text_encoder(prompts, tokenized_prompts, deep_compound_prompts_text)
+        print(f"Prompts shape: {prompts.shape}")
+        print(f"Prompts dtype: {prompts.dtype}")
         
+        text_features = self.text_encoder(prompts, tokenized_prompts, deep_compound_prompts_text)
+        print(f"Text features shape: {text_features.shape}")
+        print(f"Text features dtype: {text_features.dtype}")
+
         point_features = point_features / point_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+        print(f"Normalized point features range: [{point_features.min().item()}, {point_features.max().item()}]")
+        print(f"Normalized text features range: [{text_features.min().item()}, {text_features.max().item()}]")
+
         logits = logit_scale * point_features @ text_features.t()  # calculate similarity
+        print(f"Logits shape: {logits.shape}")
+        print(f"Logits range: [{logits.min().item()}, {logits.max().item()}]")
+    
 
         if self.prompt_learner.training:
-            return F.cross_entropy(logits, label)
-
+            loss = F.cross_entropy(logits, label)
+            print(f"Training loss: {loss.item()}")
+            
+            return loss
+        
         return logits
 
 
@@ -276,6 +333,66 @@ class MaPLePromptScene(TrainerX):
             print(f"Multiple GPUs detected (n_gpus={device_count}), use all of them!")
             self.model = nn.DataParallel(self.model)
 
+
+    def check_gradients(self, model):
+        """
+        Analyzes the gradients of trainable parameters to help debug training issues.
+        
+        Args:
+            model: The model whose gradients we want to check
+            
+        Prints detailed information about:
+        - Which parameters are being updated
+        - The range and distribution of gradient values 
+        - Any potential issues like vanishing/exploding gradients
+        """
+        print("\n=== Gradient Analysis ===")
+        
+        # Track if we find any concerning gradient patterns
+        has_vanishing_grads = False
+        has_exploding_grads = False
+
+        for name, param in model.named_parameters():
+            # Only check parameters we're actually training
+            if param.requires_grad:
+                if param.grad is not None:
+                    # Calculate key statistics about the gradients
+                    grad_min = param.grad.min().item()
+                    grad_max = param.grad.max().item()
+                    grad_mean = param.grad.mean().item()
+                    grad_std = param.grad.std().item()
+                    
+                    print(f"\nParameter: {name}")
+                    print(f"  Shape: {param.grad.shape}")
+                    print(f"  Gradient range: [{grad_min:.6f}, {grad_max:.6f}]")
+                    print(f"  Gradient mean: {grad_mean:.6f}")
+                    print(f"  Gradient std: {grad_std:.6f}")
+
+                    # Check for potential gradient issues
+                    if abs(grad_mean) < 1e-7:
+                        has_vanishing_grads = True
+                        print("  WARNING: Possibly vanishing gradients")
+                    if abs(grad_mean) > 1e2:
+                        has_exploding_grads = True
+                        print("  WARNING: Possibly exploding gradients")
+                    
+                    # Check for NaN values
+                    if torch.isnan(param.grad).any():
+                        print("  ERROR: NaN values detected in gradients!")
+                else:
+                    print(f"\nParameter: {name}")
+                    print("  No gradients computed for this parameter")
+        
+        # Print summary of findings
+        print("\n=== Gradient Check Summary ===")
+        if has_vanishing_grads:
+            print("- Warning: Some parameters have very small gradients")
+        if has_exploding_grads:
+            print("- Warning: Some parameters have very large gradients")
+        if not (has_vanishing_grads or has_exploding_grads):
+            print("- All gradient values appear to be in a reasonable range")
+
+
     def forward_backward(self, batch):
         point_feature, label = self.parse_batch_train(batch)
 
@@ -283,18 +400,40 @@ class MaPLePromptScene(TrainerX):
         optim = self.optim
         scaler = self.scaler
 
+        print("\n=== Starting Training Step ===")
+        print(f"Batch size: {point_feature.shape[0]}")
+
+        # Record initial parameter states and print every 100 batches
+        if self.batch_idx % 100 == 0:  
+            print("\nParameters before forward pass:")
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    print(f"{name} statistics:")
+                    print(f"  Mean: {param.data.mean().item():.6f}")
+                    print(f"  Std: {param.data.std().item():.6f}")
+
         prec = self.cfg.TRAINER.MAPLE_PROMPT_SCENE.PREC
         if prec == "amp":
             with autocast():
                 loss = model(point_feature, label)
             optim.zero_grad()
             scaler.scale(loss).backward()
+            
+            # Check gradients before optimization step
+            if self.batch_idx % 100 == 0:
+                self.check_gradients(model)
+            
             scaler.step(optim)
             scaler.update()
         else:
             loss = model(point_feature, label)
             optim.zero_grad()
             loss.backward()
+
+            # Check gradients before optimization step
+            if self.batch_idx % 100 == 0:
+                self.check_gradients(model)
+
             optim.step()
 
         loss_summary = {"loss": loss.item()}
@@ -305,10 +444,22 @@ class MaPLePromptScene(TrainerX):
         return loss_summary
 
     def parse_batch_train(self, batch):
-        input = batch["feature"].to(torch.float16)
+        input = batch["feature"]
         label = batch["label"]
+        print(f"Input features shape: {input.shape}")
+        print(f"Input features dtype before conversion: {input.dtype}")
+        print(f"Label shape: {label.shape}")
+        print(f"Unique labels in batch: {torch.unique(label).tolist()}")
+
+        input = input.to(torch.float16)
+        print(f"Input features dtype after conversion: {input.dtype}")
+
         input = input.to(self.device)
         label = label.to(self.device)
+        print(f"Device: {input.device}")
+        print(f"NaN values in features: {torch.isnan(input).any().item()}")
+        print(f"Feature value range: [{input.min().item()}, {input.max().item()}]")
+
         return input, label
     
     @torch.no_grad()
