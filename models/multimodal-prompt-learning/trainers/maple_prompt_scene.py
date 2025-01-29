@@ -126,8 +126,8 @@ class MultiModalPromptLearner(nn.Module):
         print(f"Number of MaPLe context words (tokens): {n_ctx}")
         # These below, related to the shallow prompts
         # Linear layer so that the tokens will project to 512 and will be initialized from 768
-        self.proj = nn.Linear(ctx_dim, 768)
-        self.proj.half()
+        # self.proj = nn.Linear(ctx_dim, 768)
+        # self.proj.half()
         self.ctx = nn.Parameter(ctx_vectors)
         # These below parameters related to the shared prompts
         # Define the compound prompts for the deeper layers
@@ -139,8 +139,8 @@ class MultiModalPromptLearner(nn.Module):
         for single_para in self.compound_prompts_text:
             nn.init.normal_(single_para, std=0.02)
         # Also make corresponding projection layers, for each prompt
-        single_layer = nn.Linear(ctx_dim, 768)
-        self.compound_prompt_projections = _get_clones(single_layer, self.compound_prompts_depth - 1)
+        # single_layer = nn.Linear(ctx_dim, 768)
+        # self.compound_prompt_projections = _get_clones(single_layer, self.compound_prompts_depth - 1)
 
         classnames = [name.replace("_", " ") for name in classnames]
         name_lens = [len(_tokenizer.encode(name)) for name in classnames]
@@ -148,11 +148,12 @@ class MultiModalPromptLearner(nn.Module):
         prompts = [prompt_prefix.replace("{label}", name) for name in classnames]
         print("whole prompts")
         print(prompts)
+        print("Sample prompt:", prompt_prefix.replace("{label}", classnames[0]))
 
         tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])  # (n_cls, n_tkn)
         with torch.no_grad():
             embedding = clip_model.token_embedding(tokenized_prompts).type(dtype)
-
+        print("Token sequence lengths:", [len(clip.tokenize(p)) for p in prompts[:3]])
         # These token vectors will be saved when in save_model(),
         # but they should be ignored in load_model() as we want to use
         # those computed using the current class names
@@ -170,7 +171,13 @@ class MultiModalPromptLearner(nn.Module):
         # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
         # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
 
+        print(f"Prompt construction debug:")
+        print(f"Context shape: {ctx.shape}")
+        print(f"Prefix shape: {prefix.shape}")
+        print(f"Suffix shape: {suffix.shape}")
+
         if label is not None:
+            print(f"Label values: {label}")
             prefix = prefix[label]
             suffix = suffix[label]
 
@@ -182,6 +189,8 @@ class MultiModalPromptLearner(nn.Module):
             ],
             dim=1,
         )
+        print(f"Final prompt shape: {prompts.shape}")
+        print(f"Sample prompt values: {prompts[0, :5, :5]}")
 
         return prompts
 
@@ -192,7 +201,7 @@ class MultiModalPromptLearner(nn.Module):
         print(f"Context vectors dtype before conversion: {self.ctx.data.dtype}")
         print(f"Projection layer weight dtype: {self.proj.weight.dtype}")
 
-        self.ctx.data = self.ctx.data.to(self.proj.weight.dtype)
+        # self.ctx.data = self.ctx.data.to(self.proj.weight.dtype)
         print(f"Context vectors dtype after conversion: {self.ctx.data.dtype}")
 
         if ctx.dim() == 2:
@@ -207,22 +216,22 @@ class MultiModalPromptLearner(nn.Module):
 
         # Before returning, need to transform
         # prompts to 768 for the visual side
-        print("\nPrompt Projections:")
-        visual_deep_prompts = []
-        for index, layer in enumerate(self.compound_prompt_projections):
-            projection = layer(self.compound_prompts_text[index])
-            print (f"Layer {index} projection shape: {projection.shape}")
-            visual_deep_prompts.append(projection)
-        
+        # print("\nPrompt Projections:")
+        # visual_deep_prompts = []
+        # for index, layer in enumerate(self.compound_prompt_projections):
+        #     projection = layer(self.compound_prompts_text[index])
+        #     print (f"Layer {index} projection shape: {projection.shape}")
+        #     visual_deep_prompts.append(projection)
+        # 
         # Now the other way around
         # We will project the textual prompts from 512 to 768
         
-        print(f"\nCtx dtype before projection: {self.ctx.dtype}")
-        projected_ctx = self.proj(self.ctx)
-        print(f"Ctx shape after projection: {projected_ctx.shape}")
-        print(f"Ctx dtype after projection: {projected_ctx.dtype}")
+        # print(f"\nCtx dtype before projection: {self.ctx.dtype}")
+        # projected_ctx = self.proj(self.ctx)
+        # print(f"Ctx shape after projection: {projected_ctx.shape}")
+        # print(f"Ctx dtype after projection: {projected_ctx.dtype}")
 
-        return prompts, projected_ctx, self.compound_prompts_text, visual_deep_prompts   # pass here original, as for visual 768 is required
+        return prompts, None, self.compound_prompts_text, None   # pass here original, as for visual 768 is required
 
 
 class CustomCLIP(nn.Module):
@@ -247,7 +256,7 @@ class CustomCLIP(nn.Module):
         logit_scale = self.logit_scale.exp()
         print(f"Logit scale: {logit_scale.item()}")
 
-        prompts, shared_ctx, deep_compound_prompts_text, deep_compound_prompts_vision = self.prompt_learner()
+        prompts, _, deep_compound_prompts_text, _ = self.prompt_learner()
         print(f"Prompts shape: {prompts.shape}")
         print(f"Prompts dtype: {prompts.dtype}")
         
@@ -482,9 +491,29 @@ class MaPLePromptScene(TrainerX):
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
             output = self.model_inference(input)
-            print("output:", output)
-            print("softmax:", F.softmax(output))
-            print("label:", label)
+            
+            softmax_output = F.softmax(output, dim=1)
+            
+            predictions = torch.argmax(softmax_output, dim=1)
+            print("\n=== Prediction Analysis ===")
+            print(f"Raw logits shape: {output.shape}")
+            print(f"Logits range: [{output.min().item():.4f}, {output.max().item():.4f}]")
+            print(f"Softmax probabilities range: [{softmax_output.min().item():.4f}, {softmax_output.max().item():.4f}]")
+            print(f"Predicted classes: {predictions.tolist()}")
+            print(f"True labels: {label.tolist()}")
+            print(f"Accuracy in batch: {(predictions == label).float().mean():.4f}")
+
+            # Print top-3 predictions for first few examples in batch
+            n_examples = min(3, len(label))
+            for i in range(n_examples):
+                top_probs, top_idxs = torch.topk(softmax_output[i], k=3)
+                print(f"\nExample {i}:")
+                print(f"True label: {label[i].item()}")
+                print("Top 3 predictions:")
+                for prob, idx in zip(top_probs, top_idxs):
+                    print(f"  Class {idx.item()}: {prob.item():.4f}")
+
+
             self.evaluator.process(output, label)
 
         results = self.evaluator.evaluate()
