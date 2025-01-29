@@ -1,6 +1,7 @@
 import clip
 import torch
 import torch.nn.functional as F
+import numpy as np
 
 MATTERPORT_LABELS_21 = ('wall', 'floor', 'cabinet', 'bed', 'chair', 'sofa', 'table', 'door',
                     'window', 'bookshelf', 'picture', 'counter', 'desk', 'curtain', 'refrigerator',
@@ -14,8 +15,10 @@ VALID_CLASS_IDS = np.asarray([3, 7, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 2
 ID_TO_LABEL = {}
 LABEL_TO_ID = {}
 PRED_ID_TO_ID = {}
+ID_TO_PRED_ID = {}
 for pred_id, i in enumerate(range(len(VALID_CLASS_IDS))):
     PRED_ID_TO_ID[pred_id] = VALID_CLASS_IDS[i]
+    ID_TO_PRED_ID[VALID_CLASS_IDS[i]] = pred_id
     LABEL_TO_ID[REPLICA_LABELS[i]] = VALID_CLASS_IDS[i]
     ID_TO_LABEL[VALID_CLASS_IDS[i]] = REPLICA_LABELS[i]
 
@@ -29,8 +32,20 @@ def gt_ids_to_label(gt_id):
     return ID_TO_LABEL[transformed_id]
 
 def gt_ids_to_id(gt_id):
-    return int(gt_id // 1000)
-
+    transformed_id = int(gt_id // 1000)
+    if transformed_id in ID_TO_PRED_ID:
+        return ID_TO_PRED_ID[transformed_id]
+    else:
+        return -1
+    
+def get_label(index):
+    if 0 <= index <= len(REPLICA_LABELS):
+        return REPLICA_LABELS[index]
+    elif index == -1:
+        return "undefined"
+    else:
+        raise IndexError("Index out of bounds.")
+        
 
 def extract_text_feature(labelset):
     '''extract CLIP text features.'''
