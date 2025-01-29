@@ -45,8 +45,14 @@ def get_label(index):
         return "undefined"
     else:
         raise IndexError("Index out of bounds.")
-        
 
+def get_clip_model(model_name):
+    print("Loading CLIP {} model...".format(model_name))
+    clip_pretrained, _ = clip.load(model_name, device='cuda', jit=False)
+    print("Finish loading")
+    return clip_pretrained
+    
+    
 def extract_text_feature(labelset):
     '''extract CLIP text features.'''
 
@@ -56,9 +62,7 @@ def extract_text_feature(labelset):
     
     model_name="ViT-B/32"
     # "ViT-L/14@336px" # the big model that OpenSeg uses
-    print("Loading CLIP {} model...".format(model_name))
-    clip_pretrained, _ = clip.load(model_name, device='cuda', jit=False)
-    print("Finish loading")
+    clip_model = get_clip_model(model_name)
 
     if isinstance(labelset, str):
         lines = labelset.split(',')
@@ -73,7 +77,7 @@ def extract_text_feature(labelset):
         labels.append(label)
     text = clip.tokenize(labels)
     text = text.cuda()
-    text_features = clip_pretrained.encode_text(text)
+    text_features = clip_model.encode_text(text)
     text_features = text_features / text_features.norm(dim=-1, keepdim=True)
 
     return text_features.detach().cpu().float(), labelset
