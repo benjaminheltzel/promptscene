@@ -163,7 +163,15 @@ class MultiModalPromptLearner(nn.Module):
         # Tokenize prompts
         tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])  # (n_cls, n_tkn)
         print(f"Tokenized prompts shape: {tokenized_prompts.shape}")
-        print("Token sequence lengths:", [len(clip.tokenize(p)) for p in prompts[:3]])
+        print("\nDetailed tokenization analysis:")
+        for i, p in enumerate(prompts[:3]):
+            tokens = clip.tokenize(p)
+            token_ids = tokens[0].tolist()
+            meaningful_tokens = [t for t in token_ids if t != 0 and t != 49407]  # Remove padding and EOS
+            print(f"Prompt {i}: '{p}'")
+            print(f"  Raw token shape: {tokens.shape}")
+            print(f"  Meaningful tokens: {len(meaningful_tokens)}")
+            print(f"  Token IDs: {meaningful_tokens}")
         
         with torch.no_grad():
             embedding = clip_model.token_embedding(tokenized_prompts).type(dtype)
@@ -211,8 +219,13 @@ class MultiModalPromptLearner(nn.Module):
             ],
             dim=1,
         )
-        print(f"Final prompt shape: {prompts.shape}")
-        print(f"Sample prompt values: {prompts[0, :5, :5]}")
+        print("\nPrompt construction verification:")
+        print(f"Prefix (SOS) size: {prefix.shape}")
+        print(f"First ctx half size: {ctx[:, :ctx_before].shape}")
+        print(f"Class token size: {suffix[:, :1].shape}")
+        print(f"Second ctx half size: {ctx[:, ctx_before:self.n_ctx].shape}")
+        print(f"Remaining suffix size: {suffix[:, 1:].shape}")
+        print(f"Total prompt size: {prompts.shape}")
 
         expected_length = 77  # CLIP's expected sequence length
         actual_length = prompts.shape[1]
