@@ -34,6 +34,9 @@ general:
   iou_threshold: 1.0
 
   area: 5
+  
+  split: all
+  required_confidence: 0.5
 
   eval_inner_core: -1 # disabled
 

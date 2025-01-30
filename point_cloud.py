@@ -30,7 +30,7 @@ def visualize_ply_with_k3d(file_path, point_size=0.05):
         point_size (float): Size of the points in the visualization.
     """
     
-    colors, coords = load_point_cloud_from_ply(file_path)
+    coords, colors  = load_point_cloud_from_ply(file_path)
 
     # Normalize colors to 0-255 and convert to hexadecimal
     colors = (colors * 255).astype(np.uint64)
@@ -63,6 +63,6 @@ def visualize_point_cloud_with_k3d(coords, colors, point_size=0.05, is_rgb=False
     colors_hex = (colors[:, 0] << 16) + (colors[:, 1] << 8) + colors[:, 2]
     
     plot = k3d.plot()
-    point_cloud = k3d.points(positions=coords, point_size=0.05, colors=colors_hex)
+    point_cloud = k3d.points(positions=coords, point_size=point_size, colors=colors_hex)
     plot += point_cloud
     return plot
