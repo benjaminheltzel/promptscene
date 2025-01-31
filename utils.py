@@ -3,14 +3,72 @@ from glob import glob
 import torch
 import numpy as np
 
-def merge_extracted_features(output_path, augmented=False, num_aug=10):
+
+def get_all_files_in_dir(path, file_type="txt"):
+    return sorted(glob(os.path.join(path, f"*.{file_type}")))
+
+def get_all_files_in_dir_and_subdir(path, file_type="txt"):
+    return sorted([
+        os.path.join(root, file)
+        for root, _, files in os.walk(path)
+        for file in files
+        if file.endswith(file_type)
+    ])
+
+def merge_extracted_features(output_path):
+
+    mask3d_path = os.path.join(output_path, "mask3d")
+    mask_paths = get_all_files_in_dir_and_subdir(mask3d_path, "pt")
+
+    openscene_path = os.path.join(output_path, "openscene")
+    features_paths = get_all_files_in_dir_and_subdir(openscene_path, "npy")
+
+    print("Instance masks: ", len(mask_paths))
+    print("Per point features: ", len(features_paths))
+
+    assert len(mask_paths) == len(features_paths)
+
+    for i in range(len(mask_paths)):
+
+        sample_name = os.path.basename(mask_paths[i]).split('_')[0]
+        print("Processing: ", sample_name)
+
+        # Make sure that the instance masks and the point feature are from the same input sample
+        assert sample_name == os.path.basename(features_paths[i]).split('_')[0]
+
+        # Load masks and features
+        masks = torch.load(mask_paths[i])
+        features = np.load(features_paths[i])
+        print(f"Masks shape: ({len(masks)}, {masks[0].shape[0]})")
+        print(f"Features shape: {features.shape}")
+
+        mean_instance_features = []
+        # Compute average instance features
+        for mask in masks:
+            masked_features = features[mask,:]
+            mean_instance_features.append(features[mask,:].mean(axis=0))
+        mean_instance_features = np.array(mean_instance_features)
+        print(f"Mean instane features: {mean_instance_features.shape}")
+
+        folder_path = os.path.join(output_path, "instance_features")
+
+        os.makedirs(folder_path, exist_ok=True)
+
+        file_path = os.path.join(folder_path, f"{sample_name}_instance_features.npy")
+
+        np.save(file_path, mean_instance_features)
+
+        print(f"Saved instance features for {sample_name}")
+            
+
+def merge_extracted_features_augmented(output_path, num_aug=10):
 
         mask3d_path = os.path.join(output_path, "mask3d")
-        mask_paths = sorted(glob(os.path.join("dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks",'*.pt')))
+        mask_paths = get_all_files_in_dir("dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks", "pt")
 
         openscene_path = os.path.join(output_path, "openscene", "prompt_learning")
         
-        features_paths = sorted([os.path.join(root, file) for root, _, files in os.walk(openscene_path) for file in files if file.endswith('.npy')])
+        features_paths = get_all_files_in_dir_and_subdir(openscene_path, "npy")
 
         print("Instance masks: ", len(mask_paths))
         print("Per point features: ", len(features_paths))
