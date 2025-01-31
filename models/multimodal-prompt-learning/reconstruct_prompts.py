@@ -131,12 +131,11 @@ class PromptReconstructor:
 #
 ## Define paths
 #prompt_path = "output/replica/MaPLePromptScene/vit_b16_c2_ep200_batch4_ctx4_depth12_cross_datasets_-1shots/seed1/learned_prompts/learned_prompts_final.#pt"
-#output_path = "encoded_prompts/replica_prompts.pt"
+#output_path = "replica_prompts.pt"
 #
 ## Define class names
 #class_names = [
-#    "chair", "table", "cabinet", "door", "window"
-#    # Add all your classes here
+#    "basket", "bed", "bench", "bin", "blanket", "blinds", "book", "bottle", "box", "bowl", "camera", "cabinet", "candle", "chair", "clock", "cloth", "comforter", "cushion", "desk", "desk-organizer", "door", "indoor-plant", "lamp", "monitor", "nightstand", "panel", "picture", "pillar", "pillow", "pipe", "plant-stand", "plate", "pot", "sculpture", "shelf", "sofa", "stool", "switch", "table", "tablet", "tissue-paper", "tv-screen", "tv-stand", "vase", "vent", "wall-plug", "window", "rug"
 #]
 #
 ## Create the reconstructor
