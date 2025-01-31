@@ -54,6 +54,7 @@ def inspect_prompt_file(prompt_path):
     return prompts  # Return the loaded prompts for further analysis if needed
 
 
+# import torch
 # from inspect_prompts import inspect_prompt_file
 # 
 # prompts = inspect_prompt_file("path/to/learned_prompts_final.pt")
