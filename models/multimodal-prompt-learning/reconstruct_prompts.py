@@ -18,8 +18,36 @@ class PromptReconstructor:
         self.learned_prompts = torch.load(prompt_path)
         self.class_names = class_names
         
-        # Load CLIP model - use same configuration as training
-        self.clip_model = clip.load("ViT-B/16", device='cuda')[0]
+        # Load the saved prompt components
+        self.learned_prompts = torch.load(prompt_path)
+        self.class_names = class_names
+        
+        # Load CLIP model with the same configuration as training
+        design_details = {
+            "trainer": 'MaPLePromptScene',
+            "vision_depth": 0,
+            "language_depth": 0, 
+            "vision_ctx": 0,
+            "language_ctx": 0,
+            "maple_length": self.learned_prompts['n_ctx']  # Use the saved n_ctx value
+        }
+        
+        # Get the model path and state dict like in MaPLe training
+        backbone_name = "ViT-B/16"  # This should match your training configuration
+        url = clip._MODELS[backbone_name]
+        model_path = clip._download(url)
+        
+        try:
+            # Try loading as JIT archive
+            model = torch.jit.load(model_path, map_location="cpu").eval()
+            state_dict = None
+        except RuntimeError:
+            # Fall back to loading state dict
+            state_dict = torch.load(model_path, map_location="cpu")
+        
+        # Build model with design details
+        self.clip_model = clip.build_model(state_dict or model.state_dict(), design_details)
+        self.clip_model = self.clip_model.to('cuda')
         
         # Verify we have the expected number of classes
         if len(class_names) != self.learned_prompts['token_prefix'].shape[0]:
