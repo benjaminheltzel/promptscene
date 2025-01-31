@@ -4,6 +4,7 @@ from pathlib import Path
 from clip import clip
 import numpy as np
 from typing import Dict, List, Tuple
+from trainers.maple_prompt_scene import TextEncoder
 
 class PromptReconstructor:
     def __init__(self, prompt_path: str, class_names: List[str]):
@@ -48,6 +49,7 @@ class PromptReconstructor:
         # Build model with design details
         self.clip_model = clip.build_model(state_dict or model.state_dict(), design_details)
         self.clip_model = self.clip_model.to('cuda')
+        self.text_encoder = TextEncoder(self.clip_model)
         
         # Verify we have the expected number of classes
         if len(class_names) != self.learned_prompts['token_prefix'].shape[0]:
@@ -96,7 +98,7 @@ class PromptReconstructor:
         # Pass through CLIP's text encoder
         with torch.no_grad():
             # Use the same text encoder configuration as in training
-            text_features = self.clip_model.encode_text(
+            text_features = self.text_encoder(
                 complete_prompts, 
                 tokenized_prompts,
                 compound_prompts
