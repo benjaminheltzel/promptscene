@@ -14,7 +14,7 @@ INPUT:
 
 OPTIM:
   NAME: "sgd"
-  LR: 0.0035
+  LR: 0.001
   MAX_EPOCH: 200
   LR_SCHEDULER: "cosine"
   WARMUP_EPOCH: 1
@@ -24,17 +24,16 @@ OPTIM:
 TRAIN:
   PRINT_FREQ: 20
 
-TEST:
-  FINAL_MODEL: "best_val"
-
 MODEL:
   BACKBONE:
-    NAME: "ViT-B/16"
+    # NAME: "ViT-B/16"
+    NAME: "ViT-B/32"
 
 TRAINER:
   MAPLE_PROMPT_SCENE:
     N_CTX: 4
     # CTX_INIT: "a {label} in a scene"
-    CTX_INIT: "a photo of a {label}."
-    PREC: "fp16"
+    CTX_INIT: "{label}"
+    # PREC: "fp16"
+    PREC: "fp32"
     PROMPT_DEPTH: 12

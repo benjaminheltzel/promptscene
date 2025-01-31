@@ -10,7 +10,7 @@ DATASET=$1
 SEED=$2
 
 CFG=$4
-SHOTS=1000000
+SHOTS=-1
 
 
 DIR=output/evaluation/${TRAINER}/${CFG}_${SHOTS}shots/${DATASET}/seed${SEED}
@@ -27,6 +27,6 @@ else
     --config-file configs/trainers/${TRAINER}/${CFG}.yaml \
     --output-dir ${DIR} \
     --model-dir output/replica/${TRAINER}/${CFG}_${SHOTS}shots/seed${SEED} \
-    --load-epoch 2 \
-    --eval-only
+    --eval-only \
+    # --load-epoch 200 
 fi

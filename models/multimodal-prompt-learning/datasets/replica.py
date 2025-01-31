@@ -111,6 +111,31 @@ class Replica(DatasetBase):
         return classnames
 
     def read_data(self, split):
+        use_mask3d = True
+        
+        if use_mask3d and split == "test":
+            split_dir = os.path.join("..", "..", "experiments", "merged_pipline", "run_2025-01-28-04-03-04", "instance_features", split)
+            scene_features = glob.glob(os.path.join(split_dir, "*_features.npy"))
+            items = []
+            for scene_path in scene_features:
+                scene = os.path.basename(scene_path).replace("_instance_features.npy", "")
+                feature_path = os.path.join(split_dir, scene + "_instance_features.npy")
+
+                if not os.path.exists(feature_path):
+                    print(feature_path)
+                    raise FileNotFoundError(f"Missing data files in {split_dir}")
+
+                # with open(feature_path, "rb") as f:
+                features = np.load(feature_path)  # ndarray(N_instance, 512)
+                print(features)
+                print(features.shape)
+
+                for i in range(len(features)):
+                    item = Datum_feature(feature=features[i], label=0, classname="", scenename=os.path.basename(scene), idx_instance=i)
+                    items.append(item)
+            return items
+            
+        
         split_dir = os.path.join(self.dataset_dir, split)
         # scenes = sorted(f.name for f in os.scandir(split_dir) if f.is_dir() and not f.name.startswith('.'))
         scene_features = glob.glob(os.path.join(split_dir, "*_features.npy"))
@@ -133,7 +158,7 @@ class Replica(DatasetBase):
             for i, label_id in enumerate(labels):
                 if not label_id in VALID_CLASS_IDS:
                     continue
-                item = Datum_feature(feature=features[i], label=int(ID_TO_PRED_ID[label_id]), classname=str(ID_TO_LABEL[label_id]))
+                item = Datum_feature(feature=features[i], label=int(ID_TO_PRED_ID[label_id]), classname=str(ID_TO_LABEL[label_id]), scenename=os.path.basename(scene), idx_instance=i)
                 items.append(item)
         return items
     
@@ -148,8 +173,8 @@ class Replica(DatasetBase):
         """
         assert subsample in ["all", "base", "new"]
 
-        # if subsample == "all":
-        #     return args
+        if subsample == "all":
+            return args
         
         dataset = args[0]  # train
         labels = set()
@@ -204,12 +229,14 @@ class Datum_feature:
         classname (str): class name.
     """
 
-    def __init__(self, feature=np.zeros((1, 728)), label=0, domain=0, classname=""):
+    def __init__(self, feature=np.zeros((1, 728)), label=0, domain=0, classname="", scenename="", idx_instance=0):
 
         self._feature = feature
         self._label = label
         self._domain = domain
         self._classname = classname
+        self._scenename = scenename
+        self._idx_instance = idx_instance
 
     @property
     def feature(self):
@@ -226,3 +253,12 @@ class Datum_feature:
     @property
     def classname(self):
         return self._classname
+    
+    @property
+    def scenename(self):
+        return self._scenename
+    
+    @property
+    def idx_instance(self):
+        return self._idx_instance
+    

@@ -256,6 +256,9 @@ class DatasetWrapper(TorchDataset):
             "label": item.label,
             "domain": item.domain,
             "feature": item.feature,
+            "classname": item.classname,
+            "scenename": item.scenename,
+            "idx_instance": item.idx_instance,
             "index": idx
         }
         return output
