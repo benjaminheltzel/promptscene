@@ -19,10 +19,6 @@ class PromptReconstructor:
         self.learned_prompts = torch.load(prompt_path)
         self.class_names = class_names
         
-        # Load the saved prompt components
-        self.learned_prompts = torch.load(prompt_path)
-        self.class_names = class_names
-        
         # Load CLIP model with the same configuration as training
         design_details = {
             "trainer": 'MaPLePromptScene',
@@ -63,23 +59,39 @@ class PromptReconstructor:
         Reconstruct the complete prompts by combining learned components.
         
         Returns:
-            Tensor of shape [num_classes, sequence_length, embedding_dim]
+            Tuple:
+              - A tensor of shape [num_classes, sequence_length, embedding_dim]
+                containing the complete prompts.
+              - The compound prompts (a list of deeper prompt tensors).
         """
         # Get components from saved state
-        ctx = self.learned_prompts['ctx']                    # [num_ctx, dim]
-        prefix = self.learned_prompts['token_prefix']        # [num_classes, 1, dim]
-        suffix = self.learned_prompts['token_suffix']        # [num_classes, suffix_len, dim]
-        compound_prompts = self.learned_prompts['compound_prompts_text']  # List of [num_ctx, dim]
+        ctx = self.learned_prompts['ctx']                  # [n_ctx, dim]
+        prefix = self.learned_prompts['token_prefix']        # [n_cls, 1, dim]
+        suffix = self.learned_prompts['token_suffix']        # [n_cls, suffix_len, dim]
+        compound_prompts = self.learned_prompts['compound_prompts_text']  # List of [n_ctx, dim]
         
-        # Expand context vectors for each class
-        batch_ctx = ctx.unsqueeze(0).expand(len(self.class_names), -1, -1)  # [num_classes, num_ctx, dim]
+        # Determine number of context tokens and split point
+        n_ctx = self.learned_prompts['n_ctx']  # or ctx.shape[0]
+        ctx_before = n_ctx // 2
         
-        # Combine in the sequence: [SOS] + [learned_ctx] + [class_name + EOS]
+        # Expand the learned context (ctx) to one per class:
+        batch_ctx = ctx.unsqueeze(0).expand(len(self.class_names), -1, -1)  # [n_cls, n_ctx, dim]
+        
+        # Reconstruct the complete prompt exactly as in training:
+        # [token_prefix] + [first half of ctx] + [first token of suffix] +
+        # [second half of ctx] + [remaining tokens of suffix]
         complete_prompts = torch.cat([
-            prefix,      # [num_classes, 1, dim]
-            batch_ctx,   # [num_classes, num_ctx, dim]
-            suffix       # [num_classes, suffix_len, dim]
-        ], dim=1)       # Result: [num_classes, sequence_length, dim]
+            prefix,                        # [n_cls, 1, dim]
+            batch_ctx[:, :ctx_before, :],  # first half of learned tokens
+            suffix[:, :1, :],              # the class name token (first token of suffix)
+            batch_ctx[:, ctx_before:, :],  # second half of learned tokens
+            suffix[:, 1:, :]               # remaining tokens (EOS + padding)
+        ], dim=1)
+        
+        # (Optionally, you can assert that the final sequence length equals 77.)
+        expected_length = 77  # as in your training code
+        actual_length = complete_prompts.shape[1]
+        assert actual_length == expected_length, f"Prompt length {actual_length} doesn't match expected {expected_length}"
         
         return complete_prompts, compound_prompts
 
@@ -88,11 +100,11 @@ class PromptReconstructor:
         Encode the complete prompts through CLIP's text encoder.
         
         Returns:
-            Tensor of shape [num_classes, clip_dim] containing the final text embeddings
+            Tensor of shape [num_classes, clip_dim] containing the final text embeddings.
         """
         complete_prompts, compound_prompts = self.reconstruct_complete_prompts()
         
-        # Get the tokenized format of our class prompts
+        # Get the tokenized format of our class prompts (saved during training)
         tokenized_prompts = self.learned_prompts['tokenized_prompts']
         
         # Pass through CLIP's text encoder
@@ -114,7 +126,7 @@ class PromptReconstructor:
         Save the encoded prompts along with class names for inference.
         
         Args:
-            save_path: Where to save the encoded prompts
+            save_path: Where to save the encoded prompts.
         """
         encoded_prompts = self.encode_prompts()
         
@@ -127,6 +139,7 @@ class PromptReconstructor:
         print(f"Saved encoded prompts to {save_path}")
         print(f"Shape: {encoded_prompts.shape}")
         print(f"Number of classes: {len(self.class_names)}")
+
 
 #from reconstruct_prompts import PromptReconstructor
 #import torch
