@@ -45,14 +45,14 @@ def load_clip_to_cpu(cfg):
 
 def inspect_tensor(name, tensor, detailed=False):
     """Helper function to inspect tensor properties in a consistent format"""
-    print(f"\n=== Inspecting {name} ===")
-    print(f"Shape: {tensor.shape}")
-    print(f"Type: {tensor.dtype}")
-    print(f"Device: {tensor.device}")
-    print(f"Stats: min={tensor.min().item():.6f}, max={tensor.max().item():.6f}, mean={tensor.mean().item():.6f}")
-    if detailed and tensor.dim() == 2:  # For 2D tensors, show a small sample
-        print("Sample values (first 2 rows, up to 5 columns):")
-        print(tensor[:2, :min(5, tensor.shape[1])])
+    # print(f"\n=== Inspecting {name} ===")
+    # print(f"Shape: {tensor.shape}")
+    # print(f"Type: {tensor.dtype}")
+    # print(f"Device: {tensor.device}")
+    # print(f"Stats: min={tensor.min().item():.6f}, max={tensor.max().item():.6f}, mean={tensor.mean().item():.6f}")
+    # if detailed and tensor.dim() == 2:  # For 2D tensors, show a small sample
+        # print("Sample values (first 2 rows, up to 5 columns):")
+        # print(tensor[:2, :min(5, tensor.shape[1])])
 
 class TextEncoder(nn.Module):
     def __init__(self, clip_model):
@@ -300,18 +300,18 @@ class CustomCLIP(nn.Module):
         logit_scale = self.logit_scale.exp()
         # print(f"Logit scale: {logit_scale.item()}")
 
-        print("\n=== Starting inference forward pass ===")
-        inspect_tensor("Input point features", point_features)
+        # print("\n=== Starting inference forward pass ===")
+        # inspect_tensor("Input point features", point_features)
 
         prompts, _, deep_compound_prompts_text, _ = self.prompt_learner()
         # print(f"Prompts shape: {prompts.shape}")
         # print(f"Prompts dtype: {prompts.dtype}")
-        inspect_tensor("Generated prompts", prompts)
+        # inspect_tensor("Generated prompts", prompts)
         
         text_features = self.text_encoder(prompts, tokenized_prompts, deep_compound_prompts_text)
         # print(f"Text features shape: {text_features.shape}")
         # print(f"Text features dtype: {text_features.dtype}")
-        inspect_tensor("Text features", text_features)
+        # inspect_tensor("Text features", text_features)
 
         point_features = point_features / point_features.norm(dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(dim=-1, keepdim=True)
@@ -324,7 +324,7 @@ class CustomCLIP(nn.Module):
         logits = logit_scale * point_features @ text_features.t()  # calculate similarity
         # print(f"Logits shape: {logits.shape}")
         # print(f"Logits range: [{logits.min().item()}, {logits.max().item()}]")
-        inspect_tensor("Final logits", logits)
+        # inspect_tensor("Final logits", logits)
     
 
         if self.prompt_learner.training:
@@ -564,7 +564,7 @@ class MaPLePromptScene(TrainerX):
 
         # Save all components
         torch.save(prompt_components, save_path)
-        print(f"Saved learned prompts to {save_path}")
+        # print(f"Saved learned prompts to {save_path}")
 
 
         
@@ -592,7 +592,7 @@ class MaPLePromptScene(TrainerX):
         for batch_idx, batch in enumerate(tqdm(data_loader)):
             input, label = self.parse_batch_test(batch)
             output = self.model_inference(input)
-            print("input:", input)
+            # print("input:", input)
             # print("output:", output)
             # print("classname:", batch['classname'])
             # print("scenename:", batch['scenename'])
@@ -701,11 +701,11 @@ class MaPLePromptScene(TrainerX):
             state_dict = checkpoint["state_dict"]
             epoch = checkpoint["epoch"]
 
-            print("\n=== Analyzing checkpoint state dict ===")
-            print("Keys found in state dict:")
-            for key in state_dict.keys():
-                if 'prompt' in key:  # Focus on prompt-related parameters
-                    print(f"  {key}: {state_dict[key].shape}")
+            # print("\n=== Analyzing checkpoint state dict ===")
+            # print("Keys found in state dict:")
+            # for key in state_dict.keys():
+            #     if 'prompt' in key:  # Focus on prompt-related parameters
+            #         print(f"  {key}: {state_dict[key].shape}")
 
 
             # Store values before deletion
@@ -724,16 +724,16 @@ class MaPLePromptScene(TrainerX):
 
             # Inspect the loaded model's prompt learner
             prompt_learner = self._models[name].prompt_learner
-            print("\n=== Inspecting loaded prompt learner state ===")
-            inspect_tensor("ctx vectors", prompt_learner.ctx.data, detailed=True)
+            # print("\n=== Inspecting loaded prompt learner state ===")
+            # inspect_tensor("ctx vectors", prompt_learner.ctx.data, detailed=True)
 
             # Inspect compound prompts
             for idx, prompt in enumerate(prompt_learner.compound_prompts_text):
                 inspect_tensor(f"compound_prompt_{idx}", prompt.data)
 
             # Test prompt construction
-            print("\n=== Testing prompt construction ===")
+            # print("\n=== Testing prompt construction ===")
             prompts, _, deep_prompts_text, _ = prompt_learner()
-            inspect_tensor("Constructed prompts", prompts)
+            # inspect_tensor("Constructed prompts", prompts)
             if deep_prompts_text:
                 print(f"Number of deep prompt layers: {len(deep_prompts_text)}")

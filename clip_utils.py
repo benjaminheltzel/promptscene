@@ -58,7 +58,8 @@ def extract_text_feature(labelset):
 
     # a bit of prompt engineering
     print('Use prompt engineering: a XX in a scene')
-    labelset = [ "a " + label + " in a scene" for label in labelset]
+    # labelset = [ "a " + label + " in a scene" for label in labelset]
+    labelset = [ "a photo of a " + label + "." for label in labelset]
     
     model_name="ViT-B/32"
     # "ViT-L/14@336px" # the big model that OpenSeg uses
@@ -107,7 +108,8 @@ def classify_features(text_features, instance_features, normalize=True):
     #predicted_probs = F.softmax(cosine_similarities, dim=1)  # Softmax over classes
     #predicted_classes = torch.argmax(predicted_probs, dim=1)  # Predicted class indices
     #confidence_scores = torch.max(predicted_probs, dim=1)[0]  # Confidence scores
-    confidence_scores = instance_features @ text_features.t()
+    text_features = text_features.to(torch.float32)
+    confidence_scores = instance_features @ text_features.cpu().t()
     predicted_classes = torch.max(confidence_scores, 1)[1]
     
     return predicted_classes, confidence_scores

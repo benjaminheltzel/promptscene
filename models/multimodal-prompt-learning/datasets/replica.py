@@ -111,7 +111,7 @@ class Replica(DatasetBase):
         return classnames
 
     def read_data(self, split):
-        use_mask3d = True
+        use_mask3d = False
         
         if use_mask3d and split == "test":
             split_dir = os.path.join("..", "..", "experiments", "merged_pipline", "run_2025-01-28-04-03-04", "instance_features", split)

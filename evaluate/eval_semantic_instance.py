@@ -508,35 +508,42 @@ def eval_on_single_scene():
     # In that case, the average scores across across all scenes will be computed.
     # PLEASE SEE THE FUNCTION "eval_on_allscenes()" ABOVE!
 
-    scene_name = 'room2'
+    scene_name = 'office1'
+    mode = 'train'
     use_mask3d = True
-    use_maple = True
+    use_maple = False
     if use_mask3d and not use_maple:  # baseline
         print("evaluate baseline")
-        pred_masks = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_masks.pt')
+        pred_masks = torch.load(f"experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/{mode}/{scene_name}_masks.pt")
         pred_masks = torch.stack(pred_masks, dim=0).T
         # pred_scores = np.loadtxt('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_confidences.txt')
-        pred_scores = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/test/room2_confidence_scores.pl')
-        pred_classes = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/test/room2_predicted_classes.pl').cpu().numpy()
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_predicted_classes.pl').cpu().numpy()
     elif not use_mask3d and not use_maple:  # OpenScene + ground truth masks
         print("OpenScene + ground truth masks")
-        pred_masks = torch.load('dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/room2.pt')[0]
+        pred_masks = torch.load(f'dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/{scene_name}.pt')[0]
         # pred_scores = np.ones(pred_masks.shape[1])  # need to changechange
-        pred_scores = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/room2_confidence_scores.pl')
-        pred_classes = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/room2_predicted_classes.pl').cpu().numpy()
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_predicted_classes.pl').cpu().numpy()
     elif not use_mask3d and use_maple:  # OpenScene + ground truth masks + MaPLe
         print("OpenScene + ground truth masks + MaPLe")
-        pred_masks = torch.load('dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/room2.pt')[0]
+        pred_masks = torch.load(f'dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/{scene_name}.pt')[0]
         # pred_scores = np.ones(pred_masks.shape[1])  # need to change
-        pred_scores = np.loadtxt('models/multimodal-prompt-learning/results/pred_confidence_room2.txt')
-        pred_classes = np.loadtxt('models/multimodal-prompt-learning/results/pred_class_room2.txt') 
+        pred_scores = np.loadtxt(f'models/multimodal-prompt-learning/results/pred_confidence_{scene_name}.txt')
+        pred_classes = np.loadtxt(f'models/multimodal-prompt-learning/results/pred_class_{scene_name}.txt') 
     elif use_mask3d and use_maple:  # OpenScene + Mask3D + MaPLe
         print("OpenScene + Mask3D + MaPLe")
-        pred_masks = torch.load('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_masks.pt')
+        pred_masks = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/{mode}/{scene_name}_masks.pt')
         pred_masks = torch.stack(pred_masks, dim=0).T
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_prompt_learning_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_prompt_learning_predicted_classes.pl').cpu().numpy()
         # pred_scores = np.loadtxt('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_confidences.txt')  # need to change
-        pred_scores = np.loadtxt('models/multimodal-prompt-learning/results/pred_confidence_room2.txt')
-        pred_classes = np.loadtxt('models/multimodal-prompt-learning/results/pred_class_room2.txt')
+        # pred_scores = np.loadtxt('models/multimodal-prompt-learning/results/pred_confidence_room2.txt')
+        # pred_classes = np.loadtxt('models/multimodal-prompt-learning/results/pred_class_room2.txt')
+        
         
     print(pred_masks.shape, pred_scores.shape, pred_classes.shape) #((num_points, num_masks), (num_masks,), (num_masks,))
 
