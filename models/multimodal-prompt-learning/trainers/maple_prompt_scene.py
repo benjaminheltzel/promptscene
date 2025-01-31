@@ -1,4 +1,4 @@
-
+import os
 import os.path as osp
 from collections import OrderedDict
 import math
@@ -525,6 +525,49 @@ class MaPLePromptScene(TrainerX):
 
         return input, label
     
+
+    def save_learned_prompts(self, save_path):
+        """
+        Saves all components of the learned prompts needed for inference.
+
+        Args:
+            save_path: Path where prompt components should be saved
+        """
+        # Get the prompt learner - handle both single-GPU and DataParallel cases
+        if isinstance(self.model, nn.DataParallel):
+            prompt_learner = self.model.module.prompt_learner
+        else:
+            prompt_learner = self.model.prompt_learner
+
+        # Get raw prompt components before text encoding
+        prompt_components = {
+            # The main learned context vectors that form the base of our prompts
+            'ctx': prompt_learner.ctx.data,
+
+            # Token prefix (SOS) and suffix (class name + EOS) that frame our context
+            'token_prefix': prompt_learner.token_prefix,
+            'token_suffix': prompt_learner.token_suffix,
+
+            # Configuration parameters needed for reconstruction
+            'n_ctx': prompt_learner.n_ctx,
+            'n_cls': prompt_learner.n_cls,
+
+            # The deeper layer prompts used in the transformer
+            'compound_prompts_text': [p.data for p in prompt_learner.compound_prompts_text],
+
+            # Save tokenized prompts for reference
+            'tokenized_prompts': prompt_learner.tokenized_prompts
+        }
+
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
+        # Save all components
+        torch.save(prompt_components, save_path)
+        print(f"Saved learned prompts to {save_path}")
+
+
+        
     @torch.no_grad()
     def test(self, split=None):
         """A generic testing pipeline."""
@@ -595,8 +638,20 @@ class MaPLePromptScene(TrainerX):
             tag = f"{split}/{k}"
             self.write_scalar(tag, v, self.epoch)
         if split == "test":
+            
+
+            # Save the learned prompts after test evaluation
+            save_dir = os.path.join(self.cfg.OUTPUT_DIR, "learned_prompts")
+            save_path = os.path.join(save_dir, f"learned_prompts_final.pt")
+            self.save_learned_prompts(save_path)
+            
+            
             self.write_results(predictions_whole, confidences_whole, scenename_whole, idx_instance_whole)
+        
         return list(results.values())[0]
+    
+
+
     def write_results(self, preds, confidences, scenenames, idx_instances):
         scene_name_set = set(scenenames)
         scenenames = np.array(scenenames)
