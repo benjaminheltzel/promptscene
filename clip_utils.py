@@ -99,10 +99,11 @@ def classify_features(text_features, instance_features, normalize=True):
         predicted_classes (torch.Tensor): Predicted class indices for each instance. Shape: (N,)
         confidence_scores (torch.Tensor): Confidence scores (max probability) for each instance. Shape: (N,)
     """
-    #if normalize:
-    #    text_features= F.normalize(text_features, dim=1)
-    #    instance_features = F.normalize(instance_features, dim=1)
-    
+
+    if normalize:
+        print("normalize the features")
+        text_features = F.normalize(text_features, dim=1)
+        instance_features = F.normalize(instance_features, dim=1)
     #cosine_similarities = torch.matmul(instance_features, text_features.T)
     
     #predicted_probs = F.softmax(cosine_similarities, dim=1)  # Softmax over classes

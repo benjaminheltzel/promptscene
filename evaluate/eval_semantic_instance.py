@@ -500,7 +500,7 @@ def eval_on_all_scenes():
     gt_dir = 'replica_gt/instances'
     evaluate(preds, gt_dir, output_file='temp_result.txt', dataset='replica')
 
-
+"""
 def eval_on_single_scene():
 
     # NOTE: if you need to evaluate only on a single scene, set the following and run the eval. 
@@ -508,7 +508,7 @@ def eval_on_single_scene():
     # In that case, the average scores across across all scenes will be computed.
     # PLEASE SEE THE FUNCTION "eval_on_allscenes()" ABOVE!
 
-    scene_name = 'office1'
+    scene_name = 'office0'
     mode = 'train'
     use_mask3d = True
     use_maple = False
@@ -531,8 +531,9 @@ def eval_on_single_scene():
         print("OpenScene + ground truth masks + MaPLe")
         pred_masks = torch.load(f'dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/{scene_name}.pt')[0]
         # pred_scores = np.ones(pred_masks.shape[1])  # need to change
-        pred_scores = np.loadtxt(f'models/multimodal-prompt-learning/results/pred_confidence_{scene_name}.txt')
-        pred_classes = np.loadtxt(f'models/multimodal-prompt-learning/results/pred_class_{scene_name}.txt') 
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_prompt_learning_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_prompt_learning_predicted_classes.pl').cpu().numpy()
     elif use_mask3d and use_maple:  # OpenScene + Mask3D + MaPLe
         print("OpenScene + Mask3D + MaPLe")
         pred_masks = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/{mode}/{scene_name}_masks.pt')
@@ -557,11 +558,81 @@ def eval_on_single_scene():
 
     gt_dir = 'dataset/data/replica_split/ground_truth'
     evaluate(preds, gt_dir, output_file='temp_result.txt', dataset='replica')
+"""
+
+def eval_on_single_scene(scene_name, mode, use_mask3d, use_maple):
+
+    # NOTE: if you need to evaluate only on a single scene, set the following and run the eval. 
+    # If you need to run it on multiple scenes, simply add the pred masks, scores and classes to "preds" similar to how it's done between lines 473-477. 
+    # In that case, the average scores across across all scenes will be computed.
+    # PLEASE SEE THE FUNCTION "eval_on_allscenes()" ABOVE!
+
+    #scene_name = 'office1'
+    #mode = 'train'
+    #use_mask3d = True
+    #use_maple = False
+    if use_mask3d and not use_maple:  # baseline
+        print("evaluate baseline")
+        pred_masks = torch.load(f"experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/{mode}/{scene_name}_masks.pt")
+        pred_masks = torch.stack(pred_masks, dim=0).T
+        # pred_scores = np.loadtxt('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_confidences.txt')
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_normalized_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_normalized_predicted_classes.pl').cpu().numpy()
+    elif not use_mask3d and not use_maple:  # OpenScene + ground truth masks
+        print("OpenScene + ground truth masks")
+        pred_masks = torch.load(f'dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/{scene_name}.pt')[0]
+        # pred_scores = np.ones(pred_masks.shape[1])  # need to changechange
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_normalized_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_normalized_predicted_classes.pl').cpu().numpy()
+    elif not use_mask3d and use_maple:  # OpenScene + ground truth masks + MaPLe
+        print("OpenScene + ground truth masks + MaPLe")
+        pred_masks = torch.load(f'dataset/OpenYOLO3D/output/replica/replica_ground_truth_masks/{scene_name}.pt')[0]
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_normalized_prompt_learning_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features_with_gt/{scene_name}_normalized_prompt_learning_predicted_classes.pl').cpu().numpy()
+    elif use_mask3d and use_maple:  # OpenScene + Mask3D + MaPLe
+        print("OpenScene + Mask3D + MaPLe")
+        pred_masks = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/{mode}/{scene_name}_masks.pt')
+        pred_masks = torch.stack(pred_masks, dim=0).T
+        pred_scores = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_normalized_prompt_learning_confidence_scores.pl')
+        pred_scores = torch.max(pred_scores, dim=1)[0]
+        pred_classes = torch.load(f'experiments/merged_pipline/run_2025-01-28-04-03-04/instance_features/{mode}/{scene_name}_normalized_prompt_learning_predicted_classes.pl').cpu().numpy()
+        # pred_scores = np.loadtxt('experiments/merged_pipline/run_2025-01-28-04-03-04/mask3d/test/room2_confidences.txt')  # need to change
+        # pred_scores = np.loadtxt('models/multimodal-prompt-learning/results/pred_confidence_room2.txt')
+        # pred_classes = np.loadtxt('models/multimodal-prompt-learning/results/pred_class_room2.txt')
+        
+        
+    print(pred_masks.shape, pred_scores.shape, pred_classes.shape) #((num_points, num_masks), (num_masks,), (num_masks,))
+
+    preds = {}
+
+    preds[scene_name] = {
+        'pred_masks': pred_masks,
+        'pred_scores': pred_scores,
+        'pred_classes': pred_classes}
+
+
+    gt_dir = 'dataset/data/replica_split/ground_truth'
+    evaluate(preds, gt_dir, output_file=f'{scene_name}_{mode}_{use_mask3d}_{use_maple}.txt', dataset='replica')
 
 
 if __name__ == '__main__':
-    eval_on_single_scene()
-    #eval_on_all_scenes()
-
-
+    scene_names = [('office0', 'train'), 
+                   ('office1', 'train'),
+                   ('office2', 'train'), 
+                   ('office3', 'val'), 
+                   ('office4', 'test'), 
+                   ('room0', 'train'), 
+                   ('room1', 'val'), 
+                   ('room2', 'test')]          
+    use_mask3d = [True, False]
+    use_maple = [True, False]
+    
+    for scene,split in scene_names:
+        for mask in use_mask3d:
+            for maple in use_maple:
+                print(scene, "mask =", mask, "maple =", maple)
+                eval_on_single_scene(scene, split, mask, maple)
 

@@ -80,18 +80,8 @@ class Replica(DatasetBase):
                 print(f"Saving preprocessed few-shot data to {preprocessed}")
                 with open(preprocessed, "wb") as file:
                     pickle.dump(data, file, protocol=pickle.HIGHEST_PROTOCOL)
-        print("-----------------------------------------------------------")
-        print("train:", train)
-        print("val:", val)
-        print("test:", test)
-        print("-----------------------------------------------------------")
         subsample = cfg.DATASET.SUBSAMPLE_CLASSES
         train, val, test = self.subsample_classes(train, val, test, subsample=subsample)
-        print("-----------------------------------------------------------")
-        print("train:", train)
-        print("val:", val)
-        print("test:", test)
-        print("-----------------------------------------------------------")
         check_labels(train)
         check_labels(val)
         check_labels(test)

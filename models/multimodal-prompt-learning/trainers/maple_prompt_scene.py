@@ -621,16 +621,10 @@ class MaPLePromptScene(TrainerX):
                 for prob, idx in zip(top_probs, top_idxs):
                     print(f"  Class {idx.item()}: {prob.item():.4f}")
             """
-            predictions_whole.append(predictions)
-            scenename_whole.extend(batch['scenename'])
-            idx_instance_whole.append(batch['idx_instance'])
-            confidences_whole.append(confidences)
 
             self.evaluator.process(output, label)
 
-        predictions_whole = torch.cat(predictions_whole)
-        idx_instance_whole = torch.cat(idx_instance_whole)
-        confidences_whole = torch.cat(confidences_whole)
+
         
         results = self.evaluator.evaluate()
 
@@ -638,36 +632,15 @@ class MaPLePromptScene(TrainerX):
             tag = f"{split}/{k}"
             self.write_scalar(tag, v, self.epoch)
         if split == "test":
-            
-
             # Save the learned prompts after test evaluation
             save_dir = os.path.join(self.cfg.OUTPUT_DIR, "learned_prompts")
             save_path = os.path.join(save_dir, f"learned_prompts_final.pt")
             self.save_learned_prompts(save_path)
             
             
-            self.write_results(predictions_whole, confidences_whole, scenename_whole, idx_instance_whole)
         
         return list(results.values())[0]
-    
-
-
-    def write_results(self, preds, confidences, scenenames, idx_instances):
-        scene_name_set = set(scenenames)
-        scenenames = np.array(scenenames)
-        for scene_name in scene_name_set:
-            num_instance = 100 # !!!ADJUST
-            pred_labels = np.zeros(num_instance, dtype=int)
-            pred_confidence = np.zeros(num_instance, dtype=float)
-            for i in range(num_instance):
-                if i in idx_instances[scenenames == scene_name]:
-                    pred = preds[scenenames == scene_name]
-                    idx_instance = idx_instances[scenenames == scene_name]
-                    confidence = confidences[scenenames == scene_name]
-                    pred_labels[i] = pred[idx_instance == i]
-                    pred_confidence[i] = confidence[idx_instance == i]
-            np.savetxt(f"results/pred_class_{scene_name}.txt", pred_labels, fmt='%d')
-            np.savetxt(f"results/pred_confidence_{scene_name}.txt", pred_confidence, fmt='%f')
+   
         
             
     def parse_batch_test(self, batch):
