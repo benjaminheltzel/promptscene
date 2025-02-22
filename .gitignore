@@ -7,3 +7,6 @@
 !/dataset/requirements.txt
 .DS_Store
 .ipynb_checkpoints/
+experiments/
+/models/multimodal-prompt-learning/output/
+*/__pycache__/*
