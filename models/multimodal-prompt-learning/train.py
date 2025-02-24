@@ -149,7 +149,9 @@ def extend_cfg(cfg):
     cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH = 9 # Max 12, minimum 0, for 1 it will act as shallow MaPLe (J=1)
     cfg.DATASET.SUBSAMPLE_CLASSES = "all"  # all, base or new
     
+    cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_POSITION = "split"
 
+    
 
 def setup_cfg(args):
     cfg = get_cfg_default()

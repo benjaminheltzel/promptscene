@@ -90,6 +90,7 @@ class MultiModalPromptLearner(nn.Module):
         ctx_init = cfg.TRAINER.MAPLE_PROMPT_SCENE.CTX_INIT
         dtype = clip_model.dtype
         ctx_dim = clip_model.ln_final.weight.shape[0]
+        self.prompt_position = cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_POSITION
 
         self.compound_prompts_depth = cfg.TRAINER.MAPLE_PROMPT_SCENE.PROMPT_DEPTH # max=12, but will create 11 such shared prompts
         assert self.compound_prompts_depth >= 1, "PROMPT_DEPTH should be >= 1"
@@ -195,22 +196,26 @@ class MultiModalPromptLearner(nn.Module):
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
         self.name_lens = name_lens
 
-    def construct_prompts(self, ctx, prefix, suffix, label=None):
-        # dim0 is either batch_size (during training) or n_cls (during testing)
-        # ctx: context tokens, with shape of (dim0, n_ctx, ctx_dim)
-        # prefix: the sos token, with shape of (n_cls, 1, ctx_dim)
-        # suffix: remaining tokens, with shape of (n_cls, *, ctx_dim)
+    def construct_prompts(self, ctx, prefix, suffix, label=None, prompt_position="split"):
+        """Construct prompts with different arrangements of learnable tokens.
+    
+        Args:
+            dim0: Either batch_size (during training) or n_cls (during testing)
+            ctx: Learnable context tokens of shape (batch_size/n_cls, n_ctx, ctx_dim)
+            prefix: SOS token of shape (n_cls, 1, ctx_dim)
+            suffix: Class name + EOS + padding, shape (n_cls, *, ctx_dim) 
+            label: Optional class labels to select specific prefix/suffix
+            prompt_position: How to arrange learnable tokens relative to class token
+                - "split": Original setup, tokens split before/after class token
+                - "prefix": All tokens before class token
+                - "suffix": All tokens after class token
+        """
 
         if label is not None:
             # print(f"Label values: {label}")
             prefix = prefix[label]
             suffix = suffix[label]
 
-        # Number of actual text tokens in the suffix
-        n_text_tokens = (suffix.shape[1] + 1) // 2
-        
-        # Split tokens into two parts
-        ctx_before = self.n_ctx // 2
 
         # print("\nPrompt construction debug:")
         # print(f"Context shape: {ctx.shape}")
@@ -218,16 +223,32 @@ class MultiModalPromptLearner(nn.Module):
         # print(f"Suffix shape: {suffix.shape}")
         # print(f"Number of text tokens in suffix: {n_text_tokens}")
 
-        prompts = torch.cat(
-            [
-                prefix,  # [SOS] (dim0, 1, dim)
-                ctx[:, :ctx_before],  # [first half of learnable tokens] (dim0, n_ctx, dim)
-                suffix[:, :1],  # [class name] (dim0, *, dim)
-                ctx[:, ctx_before:self.n_ctx],  # [second half of learnable tokens] (dim0, n_ctx, dim)
-                suffix[:, 1:],  # [remaining tokens incl EOS] (dim0, *, dim)
-            ],
-            dim=1,
-        )
+        if prompt_position == "prefix":
+            # Put all learnable tokens before the class token
+            prompts = torch.cat([
+                prefix,  # [SOS]
+                ctx,    # [all learnable tokens]
+                suffix  # [class token + EOS + padding]
+            ], dim=1)
+            
+        elif prompt_position == "suffix":
+            # Put all learnable tokens after the class token but before EOS
+            prompts = torch.cat([
+                prefix,        # [SOS]
+                suffix[:, :1], # [class token]
+                ctx,          # [all learnable tokens]
+                suffix[:, 1:] # [EOS + padding]
+            ], dim=1)
+            
+        else:  # "split" - original behavior
+            ctx_before = self.n_ctx // 2
+            prompts = torch.cat([
+                prefix,                    # [SOS]
+                ctx[:, :ctx_before],       # [first half of tokens]
+                suffix[:, :1],            # [class token]
+                ctx[:, ctx_before:],      # [second half of tokens]
+                suffix[:, 1:],           # [EOS + padding]
+            ], dim=1)
         # print("\nPrompt construction verification:")
         # print(f"Prefix (SOS) size: {prefix.shape}")
         # print(f"First ctx half size: {ctx[:, :ctx_before].shape}")
