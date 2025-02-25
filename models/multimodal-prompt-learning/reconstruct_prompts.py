@@ -6,6 +6,7 @@ import numpy as np
 from typing import Dict, List, Tuple
 from trainers.maple_prompt_scene import TextEncoder
 
+prompt_position = "split"
 class PromptReconstructor:
     def __init__(self, prompt_path: str, class_names: List[str]):
         """
@@ -80,6 +81,7 @@ class PromptReconstructor:
         # Reconstruct the complete prompt exactly as in training:
         # [token_prefix] + [first half of ctx] + [first token of suffix] +
         # [second half of ctx] + [remaining tokens of suffix]
+        """
         complete_prompts = torch.cat([
             prefix,                        # [n_cls, 1, dim]
             batch_ctx[:, :ctx_before, :],  # first half of learned tokens
@@ -87,6 +89,33 @@ class PromptReconstructor:
             batch_ctx[:, ctx_before:, :],  # second half of learned tokens
             suffix[:, 1:, :]               # remaining tokens (EOS + padding)
         ], dim=1)
+        """
+        if prompt_position == "prefix":
+            # Put all learnable tokens before the class token
+            complete_prompts = torch.cat([
+                prefix,  # [SOS]
+                batch_ctx,    # [all learnable tokens]
+                suffix  # [class token + EOS + padding]
+            ], dim=1)
+            
+        elif prompt_position == "suffix":
+            # Put all learnable tokens after the class token but before EOS
+            complete_prompts = torch.cat([
+                prefix,        # [SOS]
+                suffix[:, :1], # [class token]
+                batch_ctx,          # [all learnable tokens]
+                suffix[:, 1:] # [EOS + padding]
+            ], dim=1)
+            
+        else:  # "split" - original behavior
+            ctx_before = n_ctx // 2
+            complete_prompts = torch.cat([
+                prefix,                    # [SOS]
+                batch_ctx[:, :ctx_before],       # [first half of tokens]
+                suffix[:, :1],            # [class token]
+                batch_ctx[:, ctx_before:],      # [second half of tokens]
+                suffix[:, 1:],           # [EOS + padding]
+            ], dim=1)
         
         # (Optionally, you can assert that the final sequence length equals 77.)
         expected_length = 77  # as in your training code
